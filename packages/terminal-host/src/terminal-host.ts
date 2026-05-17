@@ -24,6 +24,20 @@ export interface TerminalHostOptions {
   bridge: PreloadBridge;
 }
 
+function encodeUtf8Base64(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+function decodeUtf8Base64(input: string): string {
+  const binary = atob(input);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
 export class TerminalHost {
   private readonly term: Terminal;
   private readonly fit: FitAddon;
@@ -41,6 +55,7 @@ export class TerminalHost {
       fontSize: 14,
       cursorBlink: true,
       convertEol: false,
+      scrollback: 5000,
       theme: {
         background: '#1e1e1e',
         foreground: '#d4d4d4',
@@ -66,20 +81,20 @@ export class TerminalHost {
   }
 
   private wireInput(): void {
-    this.term.onData((data) => {
+    const sub = this.term.onData((data) => {
       void this.bridge.send(IpcChannel.SessionWrite, {
         sessionId: this.sessionId,
-        data: btoa(unescape(encodeURIComponent(data))),
+        data: encodeUtf8Base64(data),
       });
     });
+    this.unsubscribers.push(() => sub.dispose());
   }
 
   private wireOutput(): void {
     const onData = this.bridge.on(IpcChannel.SessionData, (raw) => {
       const event = raw as { sessionId: SessionId; data: string };
       if (event.sessionId !== this.sessionId) return;
-      const decoded = decodeURIComponent(escape(atob(event.data)));
-      this.term.write(decoded);
+      this.term.write(decodeUtf8Base64(event.data));
     });
 
     const onExit = this.bridge.on(IpcChannel.SessionExited, (raw) => {
