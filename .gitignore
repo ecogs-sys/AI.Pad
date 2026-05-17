@@ -1,0 +1,39 @@
+# Brainstorm session files (visual companion mockups, server state)
+.superpowers/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+build/
+
+# Electron packaging
+release/
+app/dist/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Env / local config
+.env
+.env.local
+.env.*.local
+
+# Test output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
