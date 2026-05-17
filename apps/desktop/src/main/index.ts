@@ -28,8 +28,8 @@ function defaultShell(): Shell {
 }
 
 function preloadPath(): string {
-  // electron-vite emits preload to ../preload/index.js relative to main bundle.
-  return join(__dirname, '../preload/index.js');
+  // electron-vite emits preload as ESM (.mjs) because apps/desktop has "type": "module".
+  return join(__dirname, '../preload/index.mjs');
 }
 
 function rendererEntry(name: 'chrome' | 'terminal'): { url?: string; file?: string } {
@@ -98,6 +98,8 @@ async function createChromeWindow(): Promise<void> {
       query: { sessionId: session.id },
     });
   }
+  // Focus the terminal view so the user can type immediately without clicking first.
+  terminalView.webContents.focus();
 }
 
 app.whenReady().then(async () => {
