@@ -8,7 +8,7 @@ This repository is in active development.
 
 | Stage | Plan | Status |
 |---|---|---|
-| Stage 1 | Plan 1 — Foundations | in progress |
+| Stage 1 | Plan 1 — Foundations | complete |
 | Stage 1 | Plan 2 — Multi-tab + attention | not started |
 | Stage 1 | Plan 3 — Splits + persistence + packaging | not started |
 | Stage 2 | Overview tab | not started |
