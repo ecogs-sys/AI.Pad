@@ -9,8 +9,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged;
 
+// Single-instance lock MUST be acquired before app.whenReady() per Electron docs.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
+
 const sessionManager = new SessionManager();
-const ipcRouter = new IpcRouter(ipcMain, sessionManager);
+const _ipcRouter = new IpcRouter(ipcMain, sessionManager);
 
 let chromeWindow: BrowserWindow | null = null;
 let terminalView: WebContentsView | null = null;
@@ -53,7 +59,7 @@ async function createChromeWindow(): Promise<void> {
   });
 
   await loadInto(chromeWindow, rendererEntry('chrome'));
-  ipcRouter.subscribe(chromeWindow.webContents);
+  _ipcRouter.subscribe(chromeWindow.webContents);
 
   // Stage 1: one fixed session attached as a WebContentsView on top of the chrome window.
   terminalView = new WebContentsView({
@@ -64,7 +70,7 @@ async function createChromeWindow(): Promise<void> {
     },
   });
   chromeWindow.contentView.addChildView(terminalView);
-  ipcRouter.subscribe(terminalView.webContents);
+  _ipcRouter.subscribe(terminalView.webContents);
 
   // Position the view under the title bar / fake tab bar (30px). Resize tracks the window.
   const layout = (): void => {
@@ -95,10 +101,6 @@ async function createChromeWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
-  if (!app.requestSingleInstanceLock()) {
-    app.quit();
-    return;
-  }
   await createChromeWindow();
 });
 
