@@ -7,7 +7,7 @@ import type { Shell } from '@aipad/contracts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const isDev = !app.isPackaged;
+const isDev = !app.isPackaged && process.env['NODE_ENV'] !== 'production';
 
 // Single-instance lock MUST be acquired before app.whenReady() per Electron docs.
 if (!app.requestSingleInstanceLock()) {
