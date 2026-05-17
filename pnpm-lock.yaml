@@ -133,6 +133,25 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  tests/integration:
+    dependencies:
+      '@aipad/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aipad/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.41
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@20.19.41)
+
 packages:
 
   '@ampproject/remapping@2.3.0':
