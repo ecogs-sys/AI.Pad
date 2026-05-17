@@ -15,14 +15,40 @@ This repository is in active development.
 
 ## Quick start (development)
 
-Requires: Node.js 20+, pnpm 9+, and (on Windows) PowerShell 7 (`pwsh.exe`) on PATH.
+**Prerequisites:** Node.js 20+, pnpm 9+, and (on Windows) PowerShell 7 (`pwsh.exe`) on PATH.
+
+Open a terminal at the project root and run:
 
 ```bash
-pnpm install
-pnpm dev
+pnpm install     # one-time: fetches ~600 packages (Electron, node-pty, xterm, etc.) — a few minutes
+pnpm dev         # launches the Electron app via electron-vite
 ```
 
-A window opens with one PowerShell session.
+A native window should appear with one PowerShell session inside it.
+
+## Verify your install (Plan 1 manual smoke)
+
+After `pnpm dev` opens the window, walk through this checklist:
+
+1. **Window appears** — roughly 1280×800, dark background.
+2. **Top strip** shows the label `Plan 1 — single fixed session`.
+3. **Below the strip** there is an `xterm` terminal showing a PowerShell prompt (looks like `PS C:\Users\<you>>`).
+4. **Type a command and press Enter:**
+   - `Get-Date` → today's date prints.
+   - `ls` → directory listing prints.
+   - `1 + 1` → prints `2`.
+5. **Close the window** (click the ✕). The Electron process tree should exit cleanly. Optionally open Task Manager and confirm no orphan `electron.exe` or `pwsh.exe` is left behind.
+
+If any step fails, the dev terminal (where you ran `pnpm dev`) will usually show the error. Open DevTools inside the app with `Ctrl+Shift+I` if you need to inspect renderer logs.
+
+### Run the automated tests
+
+```bash
+pnpm test        # 7 unit (RingBuffer) + 3 integration (real PowerShell PTY) = 10 tests
+pnpm test:e2e    # 1 Playwright smoke that boots the built app and checks the chrome label
+```
+
+`pnpm test` may print harmless `AttachConsole failed` lines from node-pty's ConPTY teardown on Windows — those are stderr noise, not failures. The summary line should show `10 passed`.
 
 ## Layout
 
