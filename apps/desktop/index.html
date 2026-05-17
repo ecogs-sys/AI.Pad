@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>AI.Pad</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #1e1e1e; color: #d4d4d4; font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
+      #chrome-root { display: flex; flex-direction: column; height: 100%; }
+      .tab-bar { background: #252526; color: #ccc; padding: 6px 12px; font-size: 12px; border-bottom: 1px solid #333; }
+      .tab-bar .label { opacity: 0.6; }
+      .view-host { flex: 1; position: relative; }
+      #view-anchor { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="chrome-root">
+      <div class="tab-bar"><span class="label">Plan 1 — single fixed session</span></div>
+      <div class="view-host"><div id="view-anchor"></div></div>
+    </div>
+    <script type="module" src="/src/renderer/chrome/main.ts"></script>
+  </body>
+</html>
