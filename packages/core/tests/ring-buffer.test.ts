@@ -34,6 +34,14 @@ describe('RingBuffer', () => {
     expect(buf.snapshot().length).toBe(0);
   });
 
+  it('handles a write that straddles the physical storage boundary', () => {
+    const buf = new RingBuffer(6);
+    buf.write(Buffer.from('abcd')); // writeStart=0, fills [a,b,c,d,_,_], size=4
+    buf.write(Buffer.from('efgh')); // writeStart=4, firstSpan=2 ('ef'), remaining 'gh' wraps to [0..1]
+    // newSize=8>6, start=(0+2)%6=2 -> snapshot is storage[2..5]+storage[0..1] = 'cdef'+'gh'
+    expect(buf.snapshot().toString('utf8')).toBe('cdefgh');
+  });
+
   it('throws when constructed with a non-positive capacity', () => {
     expect(() => new RingBuffer(0)).toThrow();
     expect(() => new RingBuffer(-1)).toThrow();
