@@ -56,22 +56,40 @@ export class SessionManager extends EventEmitter {
     this.sessions.get(id)?.resize(cols, rows);
   }
 
-  close(id: SessionId): void {
+  close(id: SessionId, timeoutMs = 1500): void {
     const session = this.sessions.get(id);
     if (!session) return;
+
+    // Short-circuit if already exited: remove from map immediately.
+    if (session.info().status === 'exited') {
+      this.sessions.delete(id);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      session.kill('SIGKILL');
+      this.sessions.delete(id);
+    }, timeoutMs);
+    session.once('exit', () => {
+      clearTimeout(timer);
+      this.sessions.delete(id);
+    });
     session.kill('SIGHUP');
-    this.sessions.delete(id);
   }
 
   async closeAll(timeoutMs = 1500): Promise<void> {
     const closes = Array.from(this.sessions.values()).map(
       (session) =>
         new Promise<void>((resolve) => {
+          if (session.info().status === 'exited') {
+            resolve();
+            return;
+          }
           const timer = setTimeout(() => {
             session.kill('SIGKILL');
             resolve();
           }, timeoutMs);
-          session.on('exit', () => {
+          session.once('exit', () => {
             clearTimeout(timer);
             resolve();
           });
