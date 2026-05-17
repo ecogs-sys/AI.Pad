@@ -49,11 +49,12 @@ export class Session extends EventEmitter {
       cols: opts.cols,
       rows: opts.rows,
       cwd: opts.cwd,
-      env: { ...process.env, ...(opts.env ?? {}) } as { [key: string]: string },
+      env: { ...process.env, ...(opts.env ?? {}) },
     });
     this._status = 'running';
 
     this.pty.onData((data: string) => {
+      // node-pty delivers a decoded string; re-encode to Buffer for the ring buffer + downstream consumers.
       const buf = Buffer.from(data, 'utf8');
       this.ringBuffer.write(buf);
       this.emit('data', buf);
@@ -94,7 +95,7 @@ export class Session extends EventEmitter {
       shell: this.opts.shell,
       cwd: this.opts.cwd,
       status: this._status,
-      pid: this.pty.pid ?? null,
+      pid: this.pty.pid,
       exitCode: this._exitCode,
     };
   }
