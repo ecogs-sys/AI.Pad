@@ -4,3 +4,5 @@ export type { SessionEvents } from './session.js';
 export { SessionManager } from './session-manager.js';
 export type { SessionManagerEvents } from './session-manager.js';
 export { IpcRouter } from './ipc-router.js';
+export { AttentionDetector } from './attention-detector.js';
+export type { AttentionDetectorEvents } from './attention-detector.js';

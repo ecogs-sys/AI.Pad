@@ -1,0 +1,121 @@
+import { describe, expect, it } from 'vitest';
+import { AttentionDetector } from '../src/attention-detector.js';
+import type { AttentionEvent } from '@aipad/contracts';
+
+function collect(d: AttentionDetector): AttentionEvent[] {
+  const out: AttentionEvent[] = [];
+  d.on('attention', (ev) => out.push(ev));
+  return out;
+}
+
+describe('AttentionDetector', () => {
+  it('emits bell for a single BEL byte', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    d.process(Buffer.from([0x07]));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.signal).toBe('bell');
+    expect(events[0]?.confidence).toBe(1);
+  });
+
+  it('emits bell for each of multiple BELs in one chunk', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    d.process(Buffer.from([0x07, 0x41, 0x07, 0x42, 0x07]));
+    expect(events.filter((e) => e.signal === 'bell')).toHaveLength(3);
+  });
+
+  it('does not emit bell on non-BEL bytes', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    d.process(Buffer.from('hello world'));
+    expect(events).toHaveLength(0);
+  });
+
+  it('emits osc for a complete OSC sequence and not bell for its terminator', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    d.process(Buffer.from('\x1b]1337;AIPadAttention=needs-input\x07'));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.signal).toBe('osc');
+    expect(events[0]?.snippet).toBe('needs-input');
+  });
+
+  it('handles OSC split across multiple chunks', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    d.process(Buffer.from('\x1b]1337;AIPad'));
+    d.process(Buffer.from('Attention=split-payload'));
+    d.process(Buffer.from('\x07'));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.signal).toBe('osc');
+    expect(events[0]?.snippet).toBe('split-payload');
+  });
+
+  it('treats BEL outside OSC and BEL inside OSC differently', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    // bell, then OSC (which ends with bell), then bell
+    d.process(Buffer.from('\x07\x1b]1337;AIPadAttention=mid\x07\x07'));
+    expect(events.map((e) => e.signal)).toEqual(['bell', 'osc', 'bell']);
+  });
+
+  it('ignores a malformed OSC-prefix-like sequence that resets', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    // Start of OSC prefix, then a non-matching byte → reset, then plain BEL
+    d.process(Buffer.from('\x1b]999;other\x07'));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.signal).toBe('bell');
+  });
+
+  it('cap OSC payload length to prevent runaway buffering', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    const big = 'x'.repeat(2048);
+    d.process(Buffer.from(`\x1b]1337;AIPadAttention=${big}\x07`));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.snippet?.length).toBeLessThanOrEqual(1024);
+  });
+
+  it('emits events with a millisecond timestamp', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    const before = Date.now();
+    d.process(Buffer.from([0x07]));
+    const after = Date.now();
+    expect(events[0]?.timestamp).toBeGreaterThanOrEqual(before);
+    expect(events[0]?.timestamp).toBeLessThanOrEqual(after);
+  });
+
+  it('does not emit any signal for empty input', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    d.process(Buffer.alloc(0));
+    expect(events).toHaveLength(0);
+  });
+
+  it('processes chunks in order and preserves OSC state across many small writes', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    const seq = '\x1b]1337;AIPadAttention=hello\x07';
+    for (const byte of Buffer.from(seq)) {
+      d.process(Buffer.from([byte]));
+    }
+    expect(events).toHaveLength(1);
+    expect(events[0]?.signal).toBe('osc');
+    expect(events[0]?.snippet).toBe('hello');
+  });
+
+  it('does not retain state across detector instances', () => {
+    const dA = new AttentionDetector();
+    const dB = new AttentionDetector();
+    const eA = collect(dA);
+    const eB = collect(dB);
+    dA.process(Buffer.from('\x1b]1337;AIPadAttention=incomplete'));
+    dB.process(Buffer.from([0x07]));
+    expect(eA).toHaveLength(0); // OSC not terminated
+    expect(eB).toHaveLength(1); // plain BEL on independent detector
+    expect(eB[0]?.signal).toBe('bell');
+  });
+});
