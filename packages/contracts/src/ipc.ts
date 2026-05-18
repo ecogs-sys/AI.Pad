@@ -20,6 +20,7 @@ export const IpcChannel = {
   SessionList: 'core.session.list',
   SessionReplay: 'core.session.replay',
   LayoutShow: 'core.layout.show',
+  LayoutSetSidebarWidth: 'core.layout.set-sidebar-width',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -59,6 +60,10 @@ export type SessionReplayResponse = z.infer<typeof SessionReplayResponseSchema>;
 
 export const LayoutShowPayloadSchema = z.object({
   sessionId: SessionIdSchema,
+});
+
+export const LayoutSetSidebarWidthPayloadSchema = z.object({
+  widthPx: z.number().int().min(0),
 });
 
 // --- Event payloads ---
