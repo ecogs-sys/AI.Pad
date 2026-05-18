@@ -34,3 +34,15 @@ export const SessionInfoSchema = z.object({
   exitCode: z.number().int().nullable(),
 });
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;
+
+export const AttentionSignalSchema = z.enum(['bell', 'idle', 'osc']);
+export type AttentionSignal = z.infer<typeof AttentionSignalSchema>;
+
+export const AttentionEventSchema = z.object({
+  sessionId: SessionIdSchema,
+  signal: AttentionSignalSchema,
+  confidence: z.number().min(0).max(1),
+  snippet: z.string().max(256).optional(),
+  timestamp: z.number().int(),
+});
+export type AttentionEvent = z.infer<typeof AttentionEventSchema>;
