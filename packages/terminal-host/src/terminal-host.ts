@@ -71,6 +71,7 @@ export class TerminalHost {
     this.wireInput();
     this.wireOutput();
     this.wireResize(opts.container);
+    void this.replay();
   }
 
   dispose(): void {
@@ -78,6 +79,21 @@ export class TerminalHost {
     this.unsubscribers = [];
     this.resizeObserver?.disconnect();
     this.term.dispose();
+  }
+
+  private async replay(): Promise<void> {
+    try {
+      const response = await this.bridge.send(IpcChannel.SessionReplay, { sessionId: this.sessionId });
+      const r = response as { sessionId: string; data: string } | { error: string };
+      if ('error' in r) {
+        console.warn('[terminal] replay failed:', r.error);
+        return;
+      }
+      if (!r.data) return;
+      this.term.write(decodeUtf8Base64(r.data));
+    } catch (err) {
+      console.warn('[terminal] replay threw:', err);
+    }
   }
 
   private wireInput(): void {
@@ -118,7 +134,6 @@ export class TerminalHost {
     };
     this.resizeObserver = new ResizeObserver(dispatchResize);
     this.resizeObserver.observe(container);
-    // Push initial size so PTY matches viewport from frame 1.
     queueMicrotask(dispatchResize);
   }
 }
