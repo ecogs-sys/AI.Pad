@@ -13,3 +13,4 @@ export type {
   NotifyRequest,
   NotificationServiceOptions,
 } from './notification-service.js';
+export { IpcChannel } from '@aipad/contracts';

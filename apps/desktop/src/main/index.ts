@@ -1,25 +1,25 @@
-import { app, BrowserWindow, WebContentsView, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
-import { IpcRouter, SessionManager } from '@aipad/core';
-import type { Shell } from '@aipad/contracts';
+import { IpcChannel, IpcRouter, SessionManager } from '@aipad/core';
+import type { Shell, SessionInfo } from '@aipad/contracts';
+import { ViewManager } from './view-manager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged && process.env['NODE_ENV'] !== 'production';
 
-// Single-instance lock MUST be acquired before app.whenReady() per Electron docs.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
 
 const sessionManager = new SessionManager();
-const _ipcRouter = new IpcRouter(ipcMain, sessionManager);
+const ipcRouter = new IpcRouter(ipcMain, sessionManager);
 
 let chromeWindow: BrowserWindow | null = null;
-let terminalView: WebContentsView | null = null;
+let viewManager: ViewManager | null = null;
 
 function defaultShell(): Shell {
   if (process.platform === 'win32') return 'pwsh';
@@ -28,7 +28,6 @@ function defaultShell(): Shell {
 }
 
 function preloadPath(): string {
-  // electron-vite emits preload as ESM (.mjs) because apps/desktop has "type": "module".
   return join(__dirname, '../preload/index.mjs');
 }
 
@@ -41,10 +40,49 @@ function rendererEntry(name: 'chrome' | 'terminal'): { url?: string; file?: stri
   return { file: join(__dirname, `../renderer/${name === 'chrome' ? 'index' : 'terminal-host'}.html`) };
 }
 
-async function loadInto(view: WebContentsView | BrowserWindow, entry: { url?: string; file?: string }): Promise<void> {
-  if (entry.url) await view.webContents.loadURL(entry.url);
-  else if (entry.file) await view.webContents.loadFile(entry.file);
-}
+// IPC: renderer asks main to spawn the platform default shell at $HOME.
+ipcMain.handle(IpcChannel.SessionCreateDefault, (): SessionInfo | { error: string } => {
+  try {
+    const session = sessionManager.create({
+      shell: defaultShell(),
+      cwd: homedir(),
+      cols: 80,
+      rows: 24,
+    });
+    return session.info();
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+// Every newly created session (from any path — initial spawn, renderer request, etc.) gets
+// a fresh WebContentsView + replay-aware terminal page.
+sessionManager.on('sessionCreated', async (info) => {
+  if (!viewManager) return;
+  viewManager.create(info.id);
+  ipcRouter.subscribe(viewManager.get(info.id)!.webContents);
+  const entry = rendererEntry('terminal');
+  await viewManager.load(info.id, {
+    ...(entry.url ? { url: entry.url } : {}),
+    ...(entry.file ? { file: entry.file } : {}),
+    query: { sessionId: info.id },
+  });
+  // Make the newly created session the visible one. The renderer's LayoutManager will
+  // confirm by sending its own LayoutShow message, but we show here so there's never a
+  // moment where no view is visible.
+  viewManager.show(info.id);
+});
+
+sessionManager.on('sessionExited', (sessionId) => {
+  // Don't destroy the view on exit — the user may want to read the scrollback. The view
+  // is destroyed only when the user explicitly closes the tab (LayoutManager calls
+  // core.session.close → SessionManager.close → we destroy here via the close handler).
+  void sessionId;
+});
+
+ipcRouter.onLayoutShow((sessionId) => {
+  viewManager?.show(sessionId);
+});
 
 async function createChromeWindow(): Promise<void> {
   chromeWindow = new BrowserWindow({
@@ -58,52 +96,76 @@ async function createChromeWindow(): Promise<void> {
     },
   });
 
-  await loadInto(chromeWindow, rendererEntry('chrome'));
-  _ipcRouter.subscribe(chromeWindow.webContents);
-
-  // Stage 1: one fixed session attached as a WebContentsView on top of the chrome window.
-  terminalView = new WebContentsView({
-    webPreferences: {
-      preload: preloadPath(),
-      sandbox: false,
-      contextIsolation: true,
-    },
+  viewManager = new ViewManager({
+    preloadPath: preloadPath(),
+    onCrash: (sessionId) => handleRendererCrash(sessionId),
   });
-  chromeWindow.contentView.addChildView(terminalView);
-  _ipcRouter.subscribe(terminalView.webContents);
+  viewManager.attach(chromeWindow);
 
-  // Position the view under the title bar / fake tab bar (30px). Resize tracks the window.
-  const layout = (): void => {
-    if (!chromeWindow || !terminalView) return;
-    const { width, height } = chromeWindow.getContentBounds();
-    terminalView.setBounds({ x: 0, y: 30, width, height: Math.max(0, height - 30) });
-  };
-  layout();
-  chromeWindow.on('resize', layout);
+  await (() => {
+    const entry = rendererEntry('chrome');
+    if (entry.url) return chromeWindow!.webContents.loadURL(entry.url);
+    return chromeWindow!.webContents.loadFile(entry.file!);
+  })();
+  ipcRouter.subscribe(chromeWindow.webContents);
 
-  // Create the one fixed session *before* loading the renderer, so we can pass its id as a
-  // query parameter — no IPC handshake or race window.
-  const session = sessionManager.create({
+  // Create the initial session so the app boots with something visible. The sessionCreated
+  // listener above takes care of the matching view.
+  sessionManager.create({
     shell: defaultShell(),
     cwd: homedir(),
     cols: 80,
     rows: 24,
   });
 
-  const entry = rendererEntry('terminal');
-  if (entry.url) {
-    await terminalView.webContents.loadURL(`${entry.url}?sessionId=${encodeURIComponent(session.id)}`);
-  } else if (entry.file) {
-    await terminalView.webContents.loadFile(entry.file, {
-      query: { sessionId: session.id },
-    });
+  chromeWindow.on('closed', () => {
+    chromeWindow = null;
+    viewManager = null;
+  });
+}
+
+const crashCounters = new Map<string, number[]>(); // sessionId → recent crash timestamps
+function handleRendererCrash(sessionId: string): void {
+  if (!viewManager) return;
+  const now = Date.now();
+  const recent = (crashCounters.get(sessionId) ?? []).filter((t) => now - t < 60_000);
+  recent.push(now);
+  crashCounters.set(sessionId, recent);
+  if (recent.length >= 2) {
+    console.warn(`[main] tab ${sessionId} crashed twice in 60s; not auto-recovering.`);
+    return;
   }
-  // Focus the terminal view so the user can type immediately without clicking first.
-  terminalView.webContents.focus();
+  console.warn(`[main] tab ${sessionId} crashed; recreating view + replaying scrollback.`);
+  // Replacing the view re-loads the terminal page; replay() inside the new TerminalHost
+  // pulls the ring buffer snapshot via core.session.replay automatically.
+  void (async () => {
+    const fresh = viewManager!.replaceView(sessionId);
+    if (!fresh) return;
+    ipcRouter.subscribe(fresh.webContents);
+    const entry = rendererEntry('terminal');
+    await viewManager!.load(sessionId, {
+      ...(entry.url ? { url: entry.url } : {}),
+      ...(entry.file ? { file: entry.file } : {}),
+      query: { sessionId },
+    });
+    viewManager!.show(sessionId);
+  })();
 }
 
 app.whenReady().then(async () => {
   await createChromeWindow();
+});
+
+app.on('second-instance', () => {
+  if (chromeWindow) {
+    if (chromeWindow.isMinimized()) chromeWindow.restore();
+    chromeWindow.focus();
+  }
+});
+
+app.on('activate', () => {
+  // macOS: re-create the window when the dock icon is clicked and no windows are open.
+  if (BrowserWindow.getAllWindows().length === 0) void createChromeWindow();
 });
 
 app.on('before-quit', async (event) => {
