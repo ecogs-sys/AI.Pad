@@ -57,6 +57,11 @@ export class LayoutManager {
       session.statusSinceMs = Date.now();
       this.render();
     });
+    // Main may push LayoutShow when the user clicks a notification — keep our state in sync.
+    this.bridge.on(IpcChannel.LayoutShow, (raw) => {
+      const e = raw as { sessionId: SessionId };
+      if (this.state.sessions.has(e.sessionId)) this.focus(e.sessionId);
+    });
 
     // Pull initial session list (main may have already spawned the boot session).
     const list = (await this.bridge.send(IpcChannel.SessionList)) as SessionInfo[];

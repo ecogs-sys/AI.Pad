@@ -128,7 +128,6 @@ async function createChromeWindow(): Promise<void> {
 
   const _bridge = new NotificationBridge({
     sessionManager,
-    ipcRouter,
     viewManager: () => viewManager,
     chromeWindow: () => chromeWindow,
     focusedSessionId: () => focusedSessionId,
