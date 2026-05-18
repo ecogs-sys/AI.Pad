@@ -6,4 +6,5 @@ export default defineConfig({
   expect: { timeout: 8_000 },
   reporter: [['list']],
   use: { trace: 'retain-on-failure' },
+  workers: 1, // Electron tests must run serially – parallel launch races
 });
