@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager } from '@aipad/core';
 import type { Shell, SessionInfo } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
+import { NotificationBridge } from './notification-bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -80,7 +81,9 @@ sessionManager.on('sessionExited', (sessionId) => {
   void sessionId;
 });
 
+let focusedSessionId: string | null = null;
 ipcRouter.onLayoutShow((sessionId) => {
+  focusedSessionId = sessionId;
   viewManager?.show(sessionId);
 });
 
@@ -121,6 +124,14 @@ async function createChromeWindow(): Promise<void> {
   chromeWindow.on('closed', () => {
     chromeWindow = null;
     viewManager = null;
+  });
+
+  const _bridge = new NotificationBridge({
+    sessionManager,
+    ipcRouter,
+    viewManager: () => viewManager,
+    chromeWindow: () => chromeWindow,
+    focusedSessionId: () => focusedSessionId,
   });
 }
 
