@@ -4,17 +4,29 @@ import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-test('app launches, prompt appears, echo round-trips', async () => {
+test('app launches; chrome renders; renderer console has no errors', async () => {
+  const errors: string[] = [];
+
   const electronApp = await electron.launch({
     args: [resolve(__dirname, '../../apps/desktop')],
     env: { ...process.env, NODE_ENV: 'production' },
   });
 
-  // The chrome window is the first window; the WebContentsView is its own webContents.
-  // For Plan 1 we only need to confirm the app boots and stays up.
-  const chrome = await electronApp.firstWindow();
-  await expect(chrome.locator('.tab-bar')).toHaveText(/Plan 1/);
+  electronApp.on('window', (page) => {
+    page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(`console.error: ${msg.text()}`);
+    });
+  });
 
-  // Cleanly close.
+  const chrome = await electronApp.firstWindow();
+  await expect(chrome.locator('#tab-strip')).toBeVisible();
+  await expect(chrome.locator('#sidebar')).toBeVisible();
+
+  // Wait briefly for any startup errors to surface.
+  await chrome.waitForTimeout(1500);
+
+  expect(errors, errors.join('\n')).toEqual([]);
+
   await electronApp.close();
 });
