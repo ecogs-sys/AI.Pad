@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import type {
+  AttentionEvent,
   SessionCreateOptions,
   SessionId,
   SessionInfo,
@@ -12,6 +13,7 @@ export interface SessionManagerEvents {
   sessionData: (sessionId: SessionId, chunk: Buffer) => void;
   sessionExited: (sessionId: SessionId, exitCode: number | null, signal: string | null) => void;
   sessionTitleChanged: (sessionId: SessionId, title: string) => void;
+  sessionAttention: (ev: AttentionEvent) => void;
 }
 
 /**
@@ -35,6 +37,7 @@ export class SessionManager extends EventEmitter {
       // calls closeAll().)
     });
     session.on('titleChanged', (title) => this.emit('sessionTitleChanged', id, title));
+    session.on('attention', (ev) => this.emit('sessionAttention', ev));
 
     this.emit('sessionCreated', session.info());
     return session;
