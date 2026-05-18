@@ -70,7 +70,7 @@ describe('SessionManager + real PTY', () => {
     let exited = false;
     manager.on('sessionExited', (id) => { if (id === session.id) exited = true; });
 
-    await waitFor(() => true, 200);
+    await new Promise((r) => setTimeout(r, 200));
     session.write('exit\r');
 
     await waitFor(() => exited);
