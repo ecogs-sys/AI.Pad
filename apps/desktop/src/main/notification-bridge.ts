@@ -1,5 +1,5 @@
 import { BrowserWindow, Notification } from 'electron';
-import type { SessionManager, IpcRouter } from '@aipad/core';
+import type { SessionManager } from '@aipad/core';
 import { NotificationService } from '@aipad/core';
 import type { AttentionEvent, SessionId } from '@aipad/contracts';
 import { IpcChannel } from '@aipad/contracts';
@@ -7,7 +7,6 @@ import type { ViewManager } from './view-manager.js';
 
 export interface NotificationBridgeDeps {
   sessionManager: SessionManager;
-  ipcRouter: IpcRouter;
   viewManager: () => ViewManager | null;
   chromeWindow: () => BrowserWindow | null;
   focusedSessionId: () => SessionId | null;
