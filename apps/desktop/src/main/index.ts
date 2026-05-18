@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
@@ -6,6 +6,7 @@ import { IpcChannel, IpcRouter, SessionManager } from '@aipad/core';
 import type { Shell, SessionInfo } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
+import { buildAppMenu } from './app-menu.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -109,6 +110,7 @@ async function createChromeWindow(): Promise<void> {
     onCrash: (sessionId) => handleRendererCrash(sessionId),
   });
   viewManager.attach(chromeWindow);
+  Menu.setApplicationMenu(buildAppMenu(() => chromeWindow));
 
   await (() => {
     const entry = rendererEntry('chrome');

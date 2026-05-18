@@ -63,3 +63,8 @@ export function wireKeyboard(manager: LayoutManager): void {
     }
   });
 }
+
+export function routeMenuAction(manager: LayoutManager, actionId: string): void {
+  const handler = ACTION_HANDLERS[actionId as BindingId];
+  if (handler) handler(manager);
+}
