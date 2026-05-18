@@ -75,16 +75,21 @@ sessionManager.on('sessionCreated', async (info) => {
 });
 
 sessionManager.on('sessionExited', (sessionId) => {
-  // Don't destroy the view on exit — the user may want to read the scrollback. The view
-  // is destroyed only when the user explicitly closes the tab (LayoutManager calls
-  // core.session.close → SessionManager.close → we destroy here via the close handler).
-  void sessionId;
+  // Destroy the WebContentsView when the session exits. Plan 2's UX treats tab close
+  // as "kill the shell AND lose the scrollback" — matches Windows Terminal, VS Code, etc.
+  // Plan 3 may revisit if a "preserve exited tab" mode is wanted.
+  viewManager?.destroy(sessionId);
+  crashCounters.delete(sessionId);
 });
 
 let focusedSessionId: string | null = null;
 ipcRouter.onLayoutShow((sessionId) => {
   focusedSessionId = sessionId;
   viewManager?.show(sessionId);
+});
+
+ipcRouter.onSetSidebarWidth((widthPx) => {
+  viewManager?.setSidebarWidth(widthPx);
 });
 
 async function createChromeWindow(): Promise<void> {

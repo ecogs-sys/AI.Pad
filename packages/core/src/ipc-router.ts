@@ -7,6 +7,7 @@ import {
   SessionClosePayloadSchema,
   SessionReplayPayloadSchema,
   LayoutShowPayloadSchema,
+  LayoutSetSidebarWidthPayloadSchema,
 } from '@aipad/contracts';
 import type {
   AttentionEvent,
@@ -25,10 +26,12 @@ import type { SessionManager } from './session-manager.js';
  * WebContents. Each WebContents subscribes once at preload time.
  */
 export type LayoutShowCallback = (sessionId: SessionId) => void;
+export type SetSidebarWidthCallback = (widthPx: number) => void;
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
   private layoutShowCallback: LayoutShowCallback | null = null;
+  private setSidebarWidthCallback: SetSidebarWidthCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -41,6 +44,10 @@ export class IpcRouter {
   /** Register a callback that the chrome renderer can trigger via core.layout.show. */
   onLayoutShow(cb: LayoutShowCallback): void {
     this.layoutShowCallback = cb;
+  }
+
+  onSetSidebarWidth(cb: SetSidebarWidthCallback): void {
+    this.setSidebarWidthCallback = cb;
   }
 
   subscribe(wc: WebContents): void {
@@ -101,6 +108,13 @@ export class IpcRouter {
       const parsed = LayoutShowPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
       this.layoutShowCallback?.(parsed.data.sessionId);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.LayoutSetSidebarWidth, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutSetSidebarWidthPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.setSidebarWidthCallback?.(parsed.data.widthPx);
       return { ok: true };
     });
   }
