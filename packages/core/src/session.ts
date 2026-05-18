@@ -92,6 +92,9 @@ export class Session extends EventEmitter {
 
   kill(signal: 'SIGHUP' | 'SIGTERM' | 'SIGKILL' = 'SIGHUP'): void {
     if (this._status === 'exited') return;
+    // node-pty's Windows backend throws "Signals not supported on windows." if any
+    // signal string is passed. On Windows, call kill() with no argument which
+    // triggers the ConPTY-based teardown path instead.
     if (process.platform === 'win32') {
       this.pty.kill();
     } else {
