@@ -1,17 +1,20 @@
 import { EventEmitter } from 'node:events';
 import * as pty from 'node-pty';
 import type {
+  AttentionEvent,
   SessionCreateOptions,
   SessionId,
   SessionInfo,
   SessionStatus,
 } from '@aipad/contracts';
+import { AttentionDetector } from './attention-detector.js';
 import { RingBuffer } from './ring-buffer.js';
 
 export interface SessionEvents {
   data: (chunk: Buffer) => void;
   exit: (info: { exitCode: number | null; signal: string | null }) => void;
   titleChanged: (title: string) => void;
+  attention: (ev: AttentionEvent) => void;
 }
 
 const DEFAULT_RING_CAPACITY = 256 * 1024; // ~256 KB ≈ 5,000 lines
@@ -33,6 +36,7 @@ export class Session extends EventEmitter {
   readonly opts: SessionCreateOptions;
   readonly ringBuffer: RingBuffer;
   private readonly pty: pty.IPty;
+  private readonly detector = new AttentionDetector();
   private _title: string;
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
@@ -53,10 +57,17 @@ export class Session extends EventEmitter {
     });
     this._status = 'running';
 
+    this.detector.on('attention', (ev) => {
+      // Detector emits with sessionId='__pending__'; rewrite with our real id.
+      this._status = 'awaiting-input';
+      this.emit('attention', { ...ev, sessionId: this.id });
+    });
+
     this.pty.onData((data: string) => {
       // node-pty delivers a decoded string; re-encode to Buffer for the ring buffer + downstream consumers.
       const buf = Buffer.from(data, 'utf8');
       this.ringBuffer.write(buf);
+      this.detector.process(buf);
       this.emit('data', buf);
     });
 
@@ -69,6 +80,8 @@ export class Session extends EventEmitter {
 
   write(data: Buffer | string): void {
     if (this._status === 'exited') return;
+    // Any user input clears the awaiting-input state.
+    if (this._status === 'awaiting-input') this._status = 'running';
     this.pty.write(typeof data === 'string' ? data : data.toString('utf8'));
   }
 
@@ -79,9 +92,6 @@ export class Session extends EventEmitter {
 
   kill(signal: 'SIGHUP' | 'SIGTERM' | 'SIGKILL' = 'SIGHUP'): void {
     if (this._status === 'exited') return;
-    // node-pty's Windows backend throws "Signals not supported on windows." if any
-    // signal string is passed. On Windows, call kill() with no argument which
-    // triggers the ConPTY-based teardown path instead.
     if (process.platform === 'win32') {
       this.pty.kill();
     } else {
