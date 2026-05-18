@@ -2,7 +2,8 @@ import type { PreloadBridge } from '@aipad/terminal-host';
 import { TabStrip } from './tab-strip.js';
 import { Sidebar } from './sidebar.js';
 import { LayoutManager } from './layout-manager.js';
-import { wireKeyboard } from './keyboard.js';
+import { wireKeyboard, routeMenuAction } from './keyboard.js';
+import { IpcChannel } from '@aipad/contracts';
 
 const bridge = (window as unknown as { aipad: PreloadBridge }).aipad;
 
@@ -33,6 +34,11 @@ void manager.start();
 
 // Expose for keyboard handler (T14).
 (window as unknown as { __aipadLayout: LayoutManager }).__aipadLayout = manager;
+
+bridge.on(IpcChannel.ActionInvoke, (raw) => {
+  const { action } = raw as { action: string };
+  routeMenuAction(manager, action);
+});
 
 wireKeyboard(manager);
 

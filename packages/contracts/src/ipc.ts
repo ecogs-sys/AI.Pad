@@ -28,6 +28,7 @@ export const IpcChannel = {
   SessionExited: 'event.session.exited',
   SessionTitleChanged: 'event.session.title-changed',
   SessionAttention: 'event.session.attention',
+  ActionInvoke: 'event.action.invoke',
 } as const;
 
 // --- Request payloads ---
@@ -89,6 +90,10 @@ export const SessionTitleChangedEventSchema = z.object({
 });
 
 export const SessionAttentionEventSchema = AttentionEventSchema;
+
+export const ActionInvokePayloadSchema = z.object({
+  action: z.string().min(1),
+});
 
 // Re-export for caller convenience.
 export { SessionCreateOptionsSchema, SessionInfoSchema, SessionIdSchema, AttentionEventSchema };
