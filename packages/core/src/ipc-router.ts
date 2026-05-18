@@ -12,9 +12,8 @@ import type {
   AttentionEvent,
   SessionId,
   SessionInfo,
-  SessionReplayResponseSchema,
+  SessionReplayResponse,
 } from '@aipad/contracts';
-import type { z } from 'zod';
 import type { SessionManager } from './session-manager.js';
 
 /**
@@ -86,7 +85,7 @@ export class IpcRouter {
 
     this.ipcMain.handle(
       IpcChannel.SessionReplay,
-      (_e, raw): z.infer<typeof SessionReplayResponseSchema> | { error: string } => {
+      (_e, raw): SessionReplayResponse | { error: string } => {
         const parsed = SessionReplayPayloadSchema.safeParse(raw);
         if (!parsed.success) return { error: parsed.error.message };
         const session = this.manager.get(parsed.data.sessionId);

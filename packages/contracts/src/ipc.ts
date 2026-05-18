@@ -55,6 +55,8 @@ export const SessionReplayResponseSchema = z.object({
   data: z.string(), // base64 of RingBuffer.snapshot()
 });
 
+export type SessionReplayResponse = z.infer<typeof SessionReplayResponseSchema>;
+
 export const LayoutShowPayloadSchema = z.object({
   sessionId: SessionIdSchema,
 });
