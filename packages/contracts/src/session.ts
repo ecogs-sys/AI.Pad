@@ -35,6 +35,11 @@ export const SessionInfoSchema = z.object({
 });
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;
 
+/** Maximum length of an attention event's snippet field. Shared between the producer
+ * (AttentionDetector OSC payload accumulator) and the schema validator so the two never
+ * diverge. Increase here to relax both. */
+export const ATTENTION_SNIPPET_MAX_LEN = 256;
+
 export const AttentionSignalSchema = z.enum(['bell', 'idle', 'osc']);
 export type AttentionSignal = z.infer<typeof AttentionSignalSchema>;
 
@@ -42,7 +47,7 @@ export const AttentionEventSchema = z.object({
   sessionId: SessionIdSchema,
   signal: AttentionSignalSchema,
   confidence: z.number().min(0).max(1),
-  snippet: z.string().max(256).optional(),
+  snippet: z.string().max(ATTENTION_SNIPPET_MAX_LEN).optional(),
   timestamp: z.number().int(),
 });
 export type AttentionEvent = z.infer<typeof AttentionEventSchema>;

@@ -1,9 +1,10 @@
 import { EventEmitter } from 'node:events';
+import { ATTENTION_SNIPPET_MAX_LEN } from '@aipad/contracts';
 import type { AttentionEvent, AttentionSignal } from '@aipad/contracts';
 
 const BEL = 0x07;
 const OSC_PREFIX = Buffer.from('\x1b]1337;AIPadAttention=', 'utf8');
-const PAYLOAD_MAX = 1024;
+const PAYLOAD_MAX = ATTENTION_SNIPPET_MAX_LEN;
 
 export interface AttentionDetectorEvents {
   attention: (ev: AttentionEvent) => void;
@@ -33,6 +34,7 @@ export class AttentionDetector extends EventEmitter {
           this.oscPayload = '';
           this.inOsc = false;
         } else if (this.oscPayload.length < PAYLOAD_MAX) {
+          // ASCII-only by contract: AI.Pad OSC payloads are documented as identifier-style strings.
           this.oscPayload += String.fromCharCode(byte);
         }
         continue;
@@ -52,7 +54,8 @@ export class AttentionDetector extends EventEmitter {
       // (could itself be a plain BEL or the start of a fresh prefix).
       if (this.prefixMatchPos > 0) {
         this.prefixMatchPos = 0;
-        // Re-process this byte from scratch.
+        // Re-process this byte from scratch. Safe because prefixMatchPos is now 0, so
+        // the `prefixMatchPos > 0` branch above cannot fire on the re-entry — no loop.
         i--;
         continue;
       }
