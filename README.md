@@ -9,7 +9,7 @@ This repository is in active development.
 | Stage | Plan | Status |
 |---|---|---|
 | Stage 1 | Plan 1 — Foundations | complete |
-| Stage 1 | Plan 2 — Multi-tab + attention | not started |
+| Stage 1 | Plan 2 — Multi-tab + attention | complete |
 | Stage 1 | Plan 3 — Splits + persistence + packaging | not started |
 | Stage 2 | Overview tab | not started |
 
@@ -49,6 +49,18 @@ pnpm test:e2e    # 1 Playwright smoke that boots the built app and checks the ch
 ```
 
 `pnpm test` may print harmless `AttachConsole failed` lines from node-pty's ConPTY teardown on Windows — those are stderr noise, not failures. The summary line should show `10 passed`.
+
+## Keyboard shortcuts (Plan 2)
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+T` | New tab (default shell at `$HOME`) |
+| `Ctrl+W` | Close focused tab |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
+| `Ctrl+1` … `Ctrl+9` | Jump to tab 1–9 |
+| `Ctrl+B` | Toggle sidebar |
+
+When a background tab needs your input (e.g., an agent prompts you), the tab badges with a yellow dot and a desktop notification fires (unless that tab is already focused). Clicking the notification focuses the window and switches to that tab.
 
 ## Layout
 
