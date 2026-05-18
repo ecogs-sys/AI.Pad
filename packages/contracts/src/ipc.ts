@@ -1,25 +1,39 @@
 import { z } from 'zod';
-import { SessionCreateOptionsSchema, SessionIdSchema, SessionInfoSchema } from './session.js';
+import {
+  AttentionEventSchema,
+  SessionCreateOptionsSchema,
+  SessionIdSchema,
+  SessionInfoSchema,
+} from './session.js';
 
 /**
  * IPC channel names. Renderer -> Main are "core.*"; Main -> Renderer events are "event.*".
  * Both sides import these strings and the matching schemas — no string literals at call sites.
  */
 export const IpcChannel = {
+  // Requests (renderer -> main)
   SessionCreate: 'core.session.create',
+  SessionCreateDefault: 'core.session.create-default',
   SessionWrite: 'core.session.write',
   SessionResize: 'core.session.resize',
   SessionClose: 'core.session.close',
   SessionList: 'core.session.list',
+  SessionReplay: 'core.session.replay',
+  LayoutShow: 'core.layout.show',
 
+  // Events (main -> renderer)
+  SessionCreated: 'event.session.created',
   SessionData: 'event.session.data',
   SessionExited: 'event.session.exited',
   SessionTitleChanged: 'event.session.title-changed',
+  SessionAttention: 'event.session.attention',
 } as const;
+
+// --- Request payloads ---
 
 export const SessionWritePayloadSchema = z.object({
   sessionId: SessionIdSchema,
-  data: z.string(), // Base64-encoded bytes from renderer; main decodes.
+  data: z.string(),
 });
 
 export const SessionResizePayloadSchema = z.object({
@@ -32,9 +46,28 @@ export const SessionClosePayloadSchema = z.object({
   sessionId: SessionIdSchema,
 });
 
+export const SessionReplayPayloadSchema = z.object({
+  sessionId: SessionIdSchema,
+});
+
+export const SessionReplayResponseSchema = z.object({
+  sessionId: SessionIdSchema,
+  data: z.string(), // base64 of RingBuffer.snapshot()
+});
+
+export const LayoutShowPayloadSchema = z.object({
+  sessionId: SessionIdSchema,
+});
+
+// --- Event payloads ---
+
+export const SessionCreatedEventSchema = z.object({
+  info: SessionInfoSchema,
+});
+
 export const SessionDataEventSchema = z.object({
   sessionId: SessionIdSchema,
-  data: z.string(), // Base64 chunk from PTY stdout.
+  data: z.string(),
 });
 
 export const SessionExitedEventSchema = z.object({
@@ -48,5 +81,7 @@ export const SessionTitleChangedEventSchema = z.object({
   title: z.string(),
 });
 
+export const SessionAttentionEventSchema = AttentionEventSchema;
+
 // Re-export for caller convenience.
-export { SessionCreateOptionsSchema, SessionInfoSchema, SessionIdSchema };
+export { SessionCreateOptionsSchema, SessionInfoSchema, SessionIdSchema, AttentionEventSchema };
