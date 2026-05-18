@@ -5,19 +5,31 @@ import {
   SessionWritePayloadSchema,
   SessionResizePayloadSchema,
   SessionClosePayloadSchema,
+  SessionReplayPayloadSchema,
+  LayoutShowPayloadSchema,
 } from '@aipad/contracts';
-import type { SessionInfo, SessionId } from '@aipad/contracts';
+import type {
+  AttentionEvent,
+  SessionId,
+  SessionInfo,
+  SessionReplayResponseSchema,
+} from '@aipad/contracts';
+import type { z } from 'zod';
 import type { SessionManager } from './session-manager.js';
 
 /**
  * Wires the SessionManager up to Electron IPC. Validates every inbound payload with Zod;
- * a validation failure returns a structured error and never throws into the main loop.
+ * a validation failure (or a SessionManager.create() throw) returns a structured error
+ * and never throws into the main loop.
  *
- * Outbound events (data/exit/title) are broadcast to all subscribed WebContents. Each
- * WebContents subscribes once at preload time.
+ * Outbound events (created/data/exit/title/attention) are broadcast to all subscribed
+ * WebContents. Each WebContents subscribes once at preload time.
  */
+export type LayoutShowCallback = (sessionId: SessionId) => void;
+
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
+  private layoutShowCallback: LayoutShowCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -25,6 +37,11 @@ export class IpcRouter {
   ) {
     this.bindRequests();
     this.bindEvents();
+  }
+
+  /** Register a callback that the chrome renderer can trigger via core.layout.show. */
+  onLayoutShow(cb: LayoutShowCallback): void {
+    this.layoutShowCallback = cb;
   }
 
   subscribe(wc: WebContents): void {
@@ -36,7 +53,11 @@ export class IpcRouter {
     this.ipcMain.handle(IpcChannel.SessionCreate, (_e, raw): SessionInfo | { error: string } => {
       const parsed = SessionCreateOptionsSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
-      return this.manager.create(parsed.data).info();
+      try {
+        return this.manager.create(parsed.data).info();
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
     });
 
     this.ipcMain.handle(IpcChannel.SessionWrite, (_e, raw): { ok: true } | { error: string } => {
@@ -62,9 +83,34 @@ export class IpcRouter {
     });
 
     this.ipcMain.handle(IpcChannel.SessionList, () => this.manager.list());
+
+    this.ipcMain.handle(
+      IpcChannel.SessionReplay,
+      (_e, raw): z.infer<typeof SessionReplayResponseSchema> | { error: string } => {
+        const parsed = SessionReplayPayloadSchema.safeParse(raw);
+        if (!parsed.success) return { error: parsed.error.message };
+        const session = this.manager.get(parsed.data.sessionId);
+        if (!session) return { sessionId: parsed.data.sessionId, data: '' };
+        return {
+          sessionId: parsed.data.sessionId,
+          data: session.ringBuffer.snapshot().toString('base64'),
+        };
+      },
+    );
+
+    this.ipcMain.handle(IpcChannel.LayoutShow, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutShowPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.layoutShowCallback?.(parsed.data.sessionId);
+      return { ok: true };
+    });
   }
 
   private bindEvents(): void {
+    this.manager.on('sessionCreated', (info: SessionInfo) => {
+      this.broadcast(IpcChannel.SessionCreated, { info });
+    });
+
     this.manager.on('sessionData', (sessionId: SessionId, chunk: Buffer) => {
       this.broadcast(IpcChannel.SessionData, {
         sessionId,
@@ -78,6 +124,10 @@ export class IpcRouter {
 
     this.manager.on('sessionTitleChanged', (sessionId, title) => {
       this.broadcast(IpcChannel.SessionTitleChanged, { sessionId, title });
+    });
+
+    this.manager.on('sessionAttention', (ev: AttentionEvent) => {
+      this.broadcast(IpcChannel.SessionAttention, ev);
     });
   }
 
