@@ -36,29 +36,37 @@ Pre-built installers for Windows / macOS / Linux are published as GitHub Release
 
 The app auto-updates from GitHub Releases on next launch.
 
-## Verify your install (Plan 1 manual smoke)
+> **Release builds:** `electron-builder.json` sets `mac.identity: null` so local
+> `pnpm dist` works without certificates. A signed/notarised macOS release must
+> override this (supply an Apple Developer ID via `CSC_LINK` / `CSC_KEY_PASSWORD`
+> or a release-specific config). Obtaining the certificates is out of scope here.
+
+## Verify your install (manual smoke)
 
 After `pnpm dev` opens the window, walk through this checklist:
 
-1. **Window appears** — roughly 1280×800, dark background.
-2. **Top strip** shows the label `Plan 1 — single fixed session`.
-3. **Below the strip** there is an `xterm` terminal showing a PowerShell prompt (looks like `PS C:\Users\<you>>`).
-4. **Type a command and press Enter:**
-   - `Get-Date` → today's date prints.
-   - `ls` → directory listing prints.
-   - `1 + 1` → prints `2`.
-5. **Close the window** (click the ✕). The Electron process tree should exit cleanly. Optionally open Task Manager and confirm no orphan `electron.exe` or `pwsh.exe` is left behind.
+1. **Window appears** — roughly 1280×800, dark background, with a tab strip across
+   the top and a collapsible sidebar on the left.
+2. **The first tab** hosts an `xterm` terminal showing a shell prompt (PowerShell on
+   Windows, `bash`/`zsh` elsewhere).
+3. **Type a command and press Enter** — e.g. `Get-Date`, `ls`, `1 + 1`.
+4. **`Ctrl+T`** opens the New Session dialog; pick a shell + cwd → a second tab opens.
+5. **`Ctrl+\`** splits the focused tab into two panes; **`Ctrl+Shift+W`** closes a pane.
+6. **Close the window** (✕). The Electron process tree should exit cleanly — confirm
+   no orphan `electron.exe` / `pwsh.exe` in Task Manager.
 
-If any step fails, the dev terminal (where you ran `pnpm dev`) will usually show the error. Open DevTools inside the app with `Ctrl+Shift+I` if you need to inspect renderer logs.
+If any step fails, the dev terminal (where you ran `pnpm dev`) will usually show the
+error. Open DevTools inside the app with `Ctrl+Shift+I` to inspect renderer logs.
 
 ### Run the automated tests
 
 ```bash
-pnpm test        # 7 unit (RingBuffer) + 3 integration (real PowerShell PTY) = 10 tests
-pnpm test:e2e    # 1 Playwright smoke that boots the built app and checks the chrome label
+pnpm test        # Vitest: ~42 core unit + ~6 real-PTY integration tests
+pnpm test:e2e    # Playwright: smoke + multi-tab + splits against the built app
 ```
 
-`pnpm test` may print harmless `AttachConsole failed` lines from node-pty's ConPTY teardown on Windows — those are stderr noise, not failures. The summary line should show `10 passed`.
+`pnpm test` may print harmless `AttachConsole failed` lines from node-pty's ConPTY
+teardown on Windows — those are stderr noise, not failures.
 
 ## Keyboard shortcuts (Plan 2)
 
@@ -71,6 +79,7 @@ pnpm test:e2e    # 1 Playwright smoke that boots the built app and checks the ch
 | `Ctrl+B` | Toggle sidebar |
 | `Ctrl+\` | Split focused pane horizontally |
 | `Ctrl+Shift+\` | Split focused pane vertically |
+| `Ctrl+Shift+W` | Close focused pane |
 
 When a background tab needs your input (e.g., an agent prompts you), the tab badges with a yellow dot and a desktop notification fires (unless that tab is already focused). Clicking the notification focuses the window and switches to that tab.
 
