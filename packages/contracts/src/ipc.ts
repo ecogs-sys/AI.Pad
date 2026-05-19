@@ -19,6 +19,7 @@ export const IpcChannel = {
   SessionWrite: 'core.session.write',
   SessionResize: 'core.session.resize',
   SessionClose: 'core.session.close',
+  SessionSetTitle: 'core.session.set-title',
   SessionList: 'core.session.list',
   SessionReplay: 'core.session.replay',
   LayoutShow: 'core.layout.show',
@@ -50,6 +51,11 @@ export const SessionResizePayloadSchema = z.object({
 
 export const SessionClosePayloadSchema = z.object({
   sessionId: SessionIdSchema,
+});
+
+export const SessionSetTitlePayloadSchema = z.object({
+  sessionId: SessionIdSchema,
+  title: z.string().min(1).max(200),
 });
 
 export const SessionReplayPayloadSchema = z.object({
