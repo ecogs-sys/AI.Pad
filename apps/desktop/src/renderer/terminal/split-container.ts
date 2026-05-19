@@ -37,12 +37,16 @@ export class SplitContainer {
   private readonly shell: Shell;
   private readonly cwd: string;
   private readonly rootEl: HTMLElement;
+  /** Primary session id of the owning tab — sent with every pane create so main can
+   * scope pane cleanup to this tab. */
+  private readonly tabId: SessionId;
 
   constructor(opts: SplitContainerOptions) {
     this.bridge = opts.bridge;
     this.shell = opts.shell;
     this.cwd = opts.cwd;
     this.rootEl = opts.rootEl;
+    this.tabId = opts.initialSessionId;
     const leafEl = this.makePaneElement();
     this.rootEl.appendChild(leafEl);
     const host = new TerminalHost({ container: leafEl, sessionId: opts.initialSessionId, bridge: this.bridge });
@@ -61,6 +65,7 @@ export class SplitContainer {
       cwd: this.cwd,
       cols: 80,
       rows: 24,
+      tabId: this.tabId,
     }) as { id: string } | { error: string };
     if ('error' in newSessionInfo) {
       console.error('[split] create pane failed:', newSessionInfo.error);

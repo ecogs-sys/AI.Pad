@@ -31,6 +31,10 @@ import type { SessionManager } from './session-manager.js';
 export type LayoutShowCallback = (sessionId: SessionId) => void;
 export type SetSidebarWidthCallback = (widthPx: number) => void;
 export type SessionCreateCallback = (opts: SessionCreateOptions) => Promise<SessionInfo>;
+export type SessionCreateForPaneCallback = (
+  opts: SessionCreateOptions,
+  tabId: SessionId,
+) => SessionInfo;
 export type LayoutModalCallback = (open: boolean) => void;
 
 export class IpcRouter {
@@ -38,6 +42,7 @@ export class IpcRouter {
   private layoutShowCallback: LayoutShowCallback | null = null;
   private setSidebarWidthCallback: SetSidebarWidthCallback | null = null;
   private sessionCreateCallback: SessionCreateCallback | null = null;
+  private sessionCreateForPaneCallback: SessionCreateForPaneCallback | null = null;
   private layoutModalCallback: LayoutModalCallback | null = null;
 
   constructor(
@@ -59,6 +64,10 @@ export class IpcRouter {
 
   onSessionCreate(cb: SessionCreateCallback): void {
     this.sessionCreateCallback = cb;
+  }
+
+  onSessionCreateForPane(cb: SessionCreateForPaneCallback): void {
+    this.sessionCreateForPaneCallback = cb;
   }
 
   onLayoutModal(cb: LayoutModalCallback): void {
@@ -90,7 +99,11 @@ export class IpcRouter {
       try {
         // Note: NO view creation — this session lives as a pane inside the calling renderer.
         // kind='pane' so the chrome's SessionCreated handler ignores it (no phantom tab).
-        return this.manager.create(parsed.data, 'pane').info();
+        const { tabId, ...opts } = parsed.data;
+        if (this.sessionCreateForPaneCallback) {
+          return this.sessionCreateForPaneCallback(opts, tabId);
+        }
+        return this.manager.create(opts, 'pane').info();
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };
       }

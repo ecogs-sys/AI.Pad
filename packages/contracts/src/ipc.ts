@@ -82,6 +82,9 @@ export const SessionCreateForPanePayloadSchema = z.object({
   cwd: z.string().min(1),
   cols: z.number().int().positive().default(80),
   rows: z.number().int().positive().default(24),
+  /** Primary session id of the tab that owns this pane. Lets main close a tab's panes
+   * when the tab closes, without affecting panes in other tabs. */
+  tabId: SessionIdSchema,
 });
 
 // --- Event payloads ---
