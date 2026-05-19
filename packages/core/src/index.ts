@@ -14,3 +14,4 @@ export type {
   NotificationServiceOptions,
 } from './notification-service.js';
 export { IpcChannel } from '@aipad/contracts';
+export { SessionStore } from './session-store.js';
