@@ -3,6 +3,7 @@ import type { SessionId, SessionInfo } from '@aipad/contracts';
 export interface TabViewModel {
   info: SessionInfo;
   attention: boolean;
+  broken: boolean;
 }
 
 export interface TabStripCallbacks {
@@ -40,7 +41,12 @@ export class TabStrip {
 
       const title = document.createElement('span');
       title.className = 'title';
-      title.textContent = tab.info.title || tab.info.shell;
+      const label = tab.info.title || tab.info.shell;
+      title.textContent = tab.broken
+        ? `⚠ ${label}`
+        : tab.info.status === 'exited'
+          ? `${label} (exited)`
+          : label;
       el.appendChild(title);
 
       const close = document.createElement('span');

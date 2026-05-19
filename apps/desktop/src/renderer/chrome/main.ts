@@ -29,6 +29,7 @@ const manager = new LayoutManager({
       onToggle: () => manager.toggleSidebar(),
       onRename: (id) => void manager.renameTab(id),
       onDuplicate: (id) => void manager.duplicateTab(id),
+      onRestart: (id) => void manager.restartTab(id),
       onClose: (id) => void manager.closeTab(id),
     },
   }),

@@ -20,6 +20,7 @@ export const IpcChannel = {
   SessionResize: 'core.session.resize',
   SessionClose: 'core.session.close',
   SessionSetTitle: 'core.session.set-title',
+  SessionRestartView: 'core.session.restart-view',
   SessionList: 'core.session.list',
   SessionReplay: 'core.session.replay',
   LayoutShow: 'core.layout.show',
@@ -33,6 +34,7 @@ export const IpcChannel = {
   SessionExited: 'event.session.exited',
   SessionTitleChanged: 'event.session.title-changed',
   SessionAttention: 'event.session.attention',
+  SessionTabBroken: 'event.session.tab-broken',
   ActionInvoke: 'event.action.invoke',
   TerminalAction: 'event.terminal.action',
 } as const;
@@ -60,6 +62,11 @@ export const SessionSetTitlePayloadSchema = z.object({
 });
 
 export const SessionReplayPayloadSchema = z.object({
+  sessionId: SessionIdSchema,
+});
+
+/** Recreate a crashed tab's WebContentsView (the PTY session is still alive). */
+export const SessionRestartViewPayloadSchema = z.object({
   sessionId: SessionIdSchema,
 });
 
@@ -122,6 +129,11 @@ export const SessionTitleChangedEventSchema = z.object({
 });
 
 export const SessionAttentionEventSchema = AttentionEventSchema;
+
+/** Emitted when a tab's renderer crashed twice in 60s and auto-recovery stopped. */
+export const SessionTabBrokenEventSchema = z.object({
+  sessionId: SessionIdSchema,
+});
 
 export const ActionInvokePayloadSchema = z.object({
   action: z.string().min(1),
