@@ -1,7 +1,12 @@
 /**
  * Fixed-capacity byte ring buffer. Writes that overflow drop the oldest bytes.
  * Internal representation is a single contiguous Buffer to keep snapshot() cheap.
- * UTF-8 boundary safety is the caller's concern (we operate on raw bytes).
+ *
+ * The buffer is byte-exact: it stores and returns raw bytes and never splits or
+ * rewrites a multi-byte UTF-8 sequence on its own. Decode-time boundary safety is the
+ * consumer's concern — terminal consumers feed snapshot() through a streaming
+ * TextDecoder (or xterm.js), which tolerates a partial sequence at either end. This is
+ * deliberate: a terminal stream must not silently lose bytes to "tidy" a boundary.
  */
 export class RingBuffer {
   private readonly capacity: number;
