@@ -12,6 +12,8 @@
   "asarUnpack": [
     "node_modules/node-pty/**/*"
   ],
+  "nodeGypRebuild": false,
+  "npmRebuild": false,
   "win": {
     "target": ["nsis"],
     "signAndEditExecutable": false

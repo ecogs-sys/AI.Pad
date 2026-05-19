@@ -3,7 +3,13 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [
+      externalizeDepsPlugin({
+        // Bundle @aipad/* workspace packages INTO main so the packaged app
+        // doesn't need pnpm's symlinked node_modules at runtime.
+        exclude: ['@aipad/contracts', '@aipad/core', '@aipad/keymap'],
+      }),
+    ],
     build: {
       outDir: 'out/main',
       rollupOptions: {
