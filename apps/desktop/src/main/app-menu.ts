@@ -1,4 +1,4 @@
-import { Menu, type MenuItemConstructorOptions, BrowserWindow } from 'electron';
+import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
 import { Bindings } from '@aipad/keymap';
 import { IpcChannel } from '@aipad/contracts';
 
@@ -13,7 +13,15 @@ function send(action: string, chromeWindow: () => BrowserWindow | null): void {
  * focus. This is the only way to make Ctrl+T / Ctrl+W / Ctrl+Tab / etc. work without
  * requiring the user to click on the chrome bar first.
  */
-export function buildAppMenu(chromeWindow: () => BrowserWindow | null): Menu {
+export function buildAppMenu(
+  chromeWindow: () => BrowserWindow | null,
+  getActiveTerminalView: () => WebContentsView | null,
+): Menu {
+  function sendTerminal(action: 'splitHorizontal' | 'splitVertical'): void {
+    const view = getActiveTerminalView();
+    view?.webContents.send(IpcChannel.TerminalAction, { action });
+  }
+
   const tabsSubmenu: MenuItemConstructorOptions[] = [
     { label: 'New Tab',      accelerator: Bindings.newTab.accelerator,   click: () => send('newTab', chromeWindow) },
     { label: 'Close Tab',    accelerator: Bindings.closeTab.accelerator, click: () => send('closeTab', chromeWindow) },
@@ -29,6 +37,9 @@ export function buildAppMenu(chromeWindow: () => BrowserWindow | null): Menu {
         click: () => send(id, chromeWindow),
       };
     }),
+    { type: 'separator' },
+    { label: 'Split Horizontally', accelerator: Bindings.splitHorizontal.accelerator, click: () => sendTerminal('splitHorizontal') },
+    { label: 'Split Vertically',   accelerator: Bindings.splitVertical.accelerator,   click: () => sendTerminal('splitVertical') },
   ];
 
   const viewSubmenu: MenuItemConstructorOptions[] = [

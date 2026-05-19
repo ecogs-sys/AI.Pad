@@ -145,7 +145,10 @@ async function createChromeWindow(): Promise<void> {
     onCrash: (sessionId) => handleRendererCrash(sessionId),
   });
   viewManager.attach(chromeWindow);
-  Menu.setApplicationMenu(buildAppMenu(() => chromeWindow));
+  Menu.setApplicationMenu(buildAppMenu(
+    () => chromeWindow,
+    () => focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null,
+  ));
 
   await (() => {
     const entry = rendererEntry('chrome');

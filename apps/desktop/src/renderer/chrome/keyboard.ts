@@ -45,6 +45,8 @@ const ACTION_HANDLERS: Record<BindingId, (m: LayoutManager) => void> = {
   jumpTab8: (m) => m.focusIndex(8),
   jumpTab9: (m) => m.focusIndex(9),
   toggleSidebar: (m) => m.toggleSidebar(),
+  splitHorizontal: () => { /* routed through Electron menu → TerminalAction event */ },
+  splitVertical:   () => { /* same */ },
 };
 
 export function wireKeyboard(manager: LayoutManager): void {

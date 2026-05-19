@@ -31,6 +31,7 @@ export const IpcChannel = {
   SessionTitleChanged: 'event.session.title-changed',
   SessionAttention: 'event.session.attention',
   ActionInvoke: 'event.action.invoke',
+  TerminalAction: 'event.terminal.action',
 } as const;
 
 // --- Request payloads ---
@@ -102,6 +103,10 @@ export const SessionAttentionEventSchema = AttentionEventSchema;
 
 export const ActionInvokePayloadSchema = z.object({
   action: z.string().min(1),
+});
+
+export const TerminalActionPayloadSchema = z.object({
+  action: z.enum(['splitHorizontal', 'splitVertical']),
 });
 
 // Re-export for caller convenience.
