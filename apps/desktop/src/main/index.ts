@@ -23,6 +23,18 @@ const sessionManager = new SessionManager();
 const ipcRouter = new IpcRouter(ipcMain, sessionManager);
 const sessionStore = new SessionStore(app.getPath('userData'));
 const tabMeta = new Map<string, { tabId: string; shell: Shell; cwd: string; title?: string }>();
+/** pane session id -> owning tab's primary session id. */
+const paneOwnership = new Map<string, string>();
+
+/** Close every pane session owned by the given tab. */
+function closeTabPanes(tabId: string): void {
+  for (const [paneId, owner] of paneOwnership) {
+    if (owner === tabId) {
+      sessionManager.close(paneId);
+      paneOwnership.delete(paneId);
+    }
+  }
+}
 
 function snapshotTabs(): {
   version: 1;
@@ -121,16 +133,13 @@ sessionManager.on('sessionExited', (sessionId) => {
   // Plan 3 may revisit if a "preserve exited tab" mode is wanted.
   viewManager?.destroy(sessionId);
   crashCounters.delete(sessionId);
-  tabMeta.delete(sessionId);
-  persistTabs();
-  // Pane sessions (no tabMeta entry) that belonged to the destroyed view's tab
-  // are orphaned. We can't tell which panes belonged to which tab from main alone,
-  // so we rely on the renderer's window-closed event to kill them. As a safety net,
-  // close any session whose view doesn't exist after destroy:
-  for (const info of sessionManager.list()) {
-    if (!tabMeta.has(info.id) && !viewManager?.has(info.id)) {
-      sessionManager.close(info.id);
-    }
+  if (tabMeta.has(sessionId)) {
+    tabMeta.delete(sessionId);
+    persistTabs();
+    // Close only the panes owned by this tab — never panes belonging to other tabs.
+    closeTabPanes(sessionId);
+  } else {
+    paneOwnership.delete(sessionId);
   }
 });
 
@@ -145,6 +154,13 @@ ipcRouter.onSetSidebarWidth((widthPx) => {
 });
 
 ipcRouter.onSessionCreate((opts) => createTabSession(opts));
+
+// Pane creation: spawn a pane session and record which tab owns it (no view).
+ipcRouter.onSessionCreateForPane((opts, tabId) => {
+  const session = sessionManager.create(opts, 'pane');
+  paneOwnership.set(session.id, tabId);
+  return session.info();
+});
 
 // While a chrome-level modal (NewSessionDialog, rename) is open, move the terminal
 // WebContentsView offscreen so the native overlay does not cover the modal.
