@@ -23,7 +23,9 @@ export const Bindings = {
   jumpTab7:      { id: 'jumpTab7',      description: 'Switch to tab 7',   accelerator: 'CmdOrCtrl+7' },
   jumpTab8:      { id: 'jumpTab8',      description: 'Switch to tab 8',   accelerator: 'CmdOrCtrl+8' },
   jumpTab9:      { id: 'jumpTab9',      description: 'Switch to tab 9',   accelerator: 'CmdOrCtrl+9' },
-  toggleSidebar: { id: 'toggleSidebar', description: 'Toggle sidebar',    accelerator: 'CmdOrCtrl+B' },
+  toggleSidebar:   { id: 'toggleSidebar',   description: 'Toggle sidebar',      accelerator: 'CmdOrCtrl+B' },
+  splitHorizontal: { id: 'splitHorizontal', description: 'Split horizontally', accelerator: 'CmdOrCtrl+\\' },
+  splitVertical:   { id: 'splitVertical',   description: 'Split vertically',   accelerator: 'CmdOrCtrl+Shift+\\' },
 } as const satisfies Record<string, KeyBinding>;
 
 export type BindingId = keyof typeof Bindings;
