@@ -178,7 +178,7 @@ async function createChromeWindow(): Promise<void> {
     focusedSessionId: () => focusedSessionId,
   });
 
-  setupAutoUpdate();
+  void setupAutoUpdate();
 }
 
 const crashCounters = new Map<string, number[]>(); // sessionId → recent crash timestamps
