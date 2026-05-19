@@ -56,6 +56,17 @@
       body.sidebar-collapsed .sidebar-row .title-text,
       body.sidebar-collapsed .sidebar-row .meta,
       body.sidebar-collapsed #sidebar-label { display: none; }
+      #dialog-mount { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); z-index: 100; }
+      #dialog-mount.open { display: flex; }
+      .dialog { background: var(--bg-elev); padding: 18px 22px; border-radius: 6px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); min-width: 360px; font-size: 12px; }
+      .dialog h2 { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
+      .dialog label { display: block; margin: 10px 0 4px; color: var(--fg-dim); }
+      .dialog select, .dialog input { width: 100%; padding: 6px 8px; background: var(--bg); color: var(--fg); border: 1px solid #333; border-radius: 4px; font-family: inherit; font-size: 12px; box-sizing: border-box; }
+      .dialog .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+      .dialog button { padding: 6px 14px; background: #2d2d2d; color: var(--fg); border: 1px solid #333; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 12px; }
+      .dialog button.primary { background: #094771; border-color: #094771; }
+      .dialog button:hover { background: #3a3a3a; }
+      .dialog button.primary:hover { background: #0b5a8e; }
     </style>
   </head>
   <body>
@@ -72,6 +83,7 @@
         <div id="view-host"><div id="view-anchor"></div></div>
       </div>
     </div>
+    <div id="dialog-mount"></div>
     <script type="module" src="/src/renderer/chrome/main.ts"></script>
   </body>
 </html>
