@@ -48,7 +48,10 @@ export class SplitContainer {
     const host = new TerminalHost({ container: leafEl, sessionId: opts.initialSessionId, bridge: this.bridge });
     this.root = { kind: 'leaf', sessionId: opts.initialSessionId, host, el: leafEl };
     this.focused = this.root;
-    leafEl.addEventListener('focusin', () => { if (this.root.kind === 'leaf') this.focused = this.root; });
+    leafEl.addEventListener('focusin', () => {
+      // Walk the tree to find the leaf with this DOM element — keeps focus tracking correct after splits.
+      this.focused = this.findLeafByElement(leafEl) ?? this.focused;
+    });
   }
 
   async splitFocused(orientation: Orientation): Promise<void> {
@@ -101,8 +104,9 @@ export class SplitContainer {
     this.wireDivider(branch, divider);
 
     this.focused = newLeaf;
-    newLeafEl.addEventListener('focusin', () => { this.focused = newLeaf; });
-    newHost.dispose;  // referenced; do not actually call yet
+    newLeafEl.addEventListener('focusin', () => {
+      this.focused = this.findLeafByElement(newLeafEl) ?? this.focused;
+    });
   }
 
   private wireDivider(branch: BranchNode, divider: HTMLElement): void {
@@ -140,6 +144,14 @@ export class SplitContainer {
     el.style.height = '100%';
     el.tabIndex = 0;
     return el;
+  }
+
+  private findLeafByElement(el: HTMLElement): LeafNode | null {
+    function walk(node: SplitNode): LeafNode | null {
+      if (node.kind === 'leaf') return node.el === el ? node : null;
+      return walk(node.a) ?? walk(node.b);
+    }
+    return walk(this.root);
   }
 
   getFocusedSessionId(): SessionId {
