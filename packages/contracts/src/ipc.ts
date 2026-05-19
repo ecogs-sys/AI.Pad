@@ -25,6 +25,7 @@ export const IpcChannel = {
   LayoutShow: 'core.layout.show',
   LayoutSetSidebarWidth: 'core.layout.set-sidebar-width',
   LayoutModal: 'core.layout.modal',
+  LayoutReorderTabs: 'core.layout.reorder-tabs',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -81,6 +82,11 @@ export const LayoutSetSidebarWidthPayloadSchema = z.object({
  * chrome-level modal (e.g. NewSessionDialog) is not obscured by the native overlay. */
 export const LayoutModalPayloadSchema = z.object({
   open: z.boolean(),
+});
+
+/** Sent after a drag-reorder so main can persist the authoritative tab order. */
+export const LayoutReorderTabsPayloadSchema = z.object({
+  order: z.array(SessionIdSchema),
 });
 
 export const SessionCreateForPanePayloadSchema = z.object({
