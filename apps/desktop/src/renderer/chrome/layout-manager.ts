@@ -143,6 +143,25 @@ export class LayoutManager {
     this.render();
   }
 
+  renameTab(sessionId: SessionId, newTitle: string): void {
+    const session = this.state.sessions.get(sessionId);
+    if (!session) return;
+    session.info = { ...session.info, title: newTitle };
+    this.render();
+  }
+
+  async duplicateTab(sessionId: SessionId): Promise<void> {
+    const session = this.state.sessions.get(sessionId);
+    if (!session) return;
+    const info = (await this.bridge.send(IpcChannel.SessionCreate, {
+      shell: session.info.shell,
+      cwd: session.info.cwd,
+      cols: 80,
+      rows: 24,
+    })) as SessionInfo | { error: string };
+    if ('error' in info) console.error('[chrome] duplicate failed:', info.error);
+  }
+
   focus(sessionId: SessionId): void {
     if (!this.state.sessions.has(sessionId)) return;
     this.state.focusedId = sessionId;
