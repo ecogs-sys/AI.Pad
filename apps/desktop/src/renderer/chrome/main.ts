@@ -19,6 +19,7 @@ const manager = new LayoutManager({
     onTabClick: (id) => manager.focus(id),
     onTabClose: (id) => void manager.closeTab(id),
     onNewTab: () => void manager.newTab(),
+    onTabReorder: (id, before) => manager.reorderTab(id, before),
   }),
   sidebar: new Sidebar({
     listEl: sidebarListEl,

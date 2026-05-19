@@ -129,6 +129,20 @@ export class LayoutManager {
     this.render();
   }
 
+  reorderTab(draggedId: SessionId, beforeId: SessionId | null): void {
+    const dragIdx = this.state.tabOrder.indexOf(draggedId);
+    if (dragIdx < 0) return;
+    const [moved] = this.state.tabOrder.splice(dragIdx, 1);
+    if (!moved) return;
+    if (beforeId === null) {
+      this.state.tabOrder.push(moved);
+    } else {
+      const beforeIdx = this.state.tabOrder.indexOf(beforeId);
+      this.state.tabOrder.splice(beforeIdx, 0, moved);
+    }
+    this.render();
+  }
+
   focus(sessionId: SessionId): void {
     if (!this.state.sessions.has(sessionId)) return;
     this.state.focusedId = sessionId;
