@@ -9,6 +9,12 @@ dist/
 out/
 build/
 
+# Allow electron-builder buildResources (app icon, etc.)
+!apps/desktop/build/
+apps/desktop/build/*
+!apps/desktop/build/icon.png
+!apps/desktop/build/generate-icon.ps1
+
 # Electron packaging
 release/
 app/dist/
