@@ -2,6 +2,7 @@ import type { IpcMain, WebContents } from 'electron';
 import {
   IpcChannel,
   SessionCreateOptionsSchema,
+  SessionCreateForPanePayloadSchema,
   SessionWritePayloadSchema,
   SessionResizePayloadSchema,
   SessionClosePayloadSchema,
@@ -70,6 +71,17 @@ export class IpcRouter {
         if (this.sessionCreateCallback) {
           return await this.sessionCreateCallback(parsed.data);
         }
+        return this.manager.create(parsed.data).info();
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    });
+
+    this.ipcMain.handle(IpcChannel.SessionCreateForPane, (_e, raw): SessionInfo | { error: string } => {
+      const parsed = SessionCreateForPanePayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      try {
+        // Note: NO view creation — this session lives as a pane inside the calling renderer.
         return this.manager.create(parsed.data).info();
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };
