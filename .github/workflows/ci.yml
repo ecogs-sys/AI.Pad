@@ -25,12 +25,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --filter './packages/*' build
       - run: pnpm test
-      - name: Install Playwright + Chromium
-        run: pnpm --filter @aipad/e2e exec playwright install --with-deps chromium
-        if: runner.os == 'Linux'
+      # Build the desktop app on every OS so packaging-time breakage is caught per PR.
       - name: Build desktop app
         run: pnpm --filter @aipad/desktop build
+      - name: Install Playwright + Chromium
+        run: pnpm --filter @aipad/e2e exec playwright install --with-deps chromium
+      # E2E on Linux for every PR + push.
+      - name: Run E2E (Linux, xvfb)
         if: runner.os == 'Linux'
-      - name: Run E2E on Linux (xvfb-run for headless)
         run: xvfb-run --auto-servernum pnpm test:e2e
-        if: runner.os == 'Linux'
+      # Full E2E matrix on pushes to main (Windows + macOS).
+      - name: Run E2E (Windows/macOS, main only)
+        if: runner.os != 'Linux' && github.event_name == 'push'
+        run: pnpm test:e2e
