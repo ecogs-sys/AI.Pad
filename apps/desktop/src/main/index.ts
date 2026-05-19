@@ -146,6 +146,13 @@ ipcRouter.onSetSidebarWidth((widthPx) => {
 
 ipcRouter.onSessionCreate((opts) => createTabSession(opts));
 
+// While a chrome-level modal (NewSessionDialog, rename) is open, move the terminal
+// WebContentsView offscreen so the native overlay does not cover the modal.
+ipcRouter.onLayoutModal((open) => {
+  if (open) viewManager?.suspend();
+  else viewManager?.resume();
+});
+
 async function createChromeWindow(): Promise<void> {
   chromeWindow = new BrowserWindow({
     width: 1280,

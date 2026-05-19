@@ -9,6 +9,7 @@ import {
   SessionReplayPayloadSchema,
   LayoutShowPayloadSchema,
   LayoutSetSidebarWidthPayloadSchema,
+  LayoutModalPayloadSchema,
 } from '@aipad/contracts';
 import type {
   AttentionEvent,
@@ -30,12 +31,14 @@ import type { SessionManager } from './session-manager.js';
 export type LayoutShowCallback = (sessionId: SessionId) => void;
 export type SetSidebarWidthCallback = (widthPx: number) => void;
 export type SessionCreateCallback = (opts: SessionCreateOptions) => Promise<SessionInfo>;
+export type LayoutModalCallback = (open: boolean) => void;
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
   private layoutShowCallback: LayoutShowCallback | null = null;
   private setSidebarWidthCallback: SetSidebarWidthCallback | null = null;
   private sessionCreateCallback: SessionCreateCallback | null = null;
+  private layoutModalCallback: LayoutModalCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -56,6 +59,10 @@ export class IpcRouter {
 
   onSessionCreate(cb: SessionCreateCallback): void {
     this.sessionCreateCallback = cb;
+  }
+
+  onLayoutModal(cb: LayoutModalCallback): void {
+    this.layoutModalCallback = cb;
   }
 
   subscribe(wc: WebContents): void {
@@ -138,6 +145,13 @@ export class IpcRouter {
       const parsed = LayoutSetSidebarWidthPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
       this.setSidebarWidthCallback?.(parsed.data.widthPx);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.LayoutModal, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutModalPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.layoutModalCallback?.(parsed.data.open);
       return { ok: true };
     });
   }

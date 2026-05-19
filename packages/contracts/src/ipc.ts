@@ -23,6 +23,7 @@ export const IpcChannel = {
   SessionReplay: 'core.session.replay',
   LayoutShow: 'core.layout.show',
   LayoutSetSidebarWidth: 'core.layout.set-sidebar-width',
+  LayoutModal: 'core.layout.modal',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -68,6 +69,12 @@ export const LayoutShowPayloadSchema = z.object({
 
 export const LayoutSetSidebarWidthPayloadSchema = z.object({
   widthPx: z.number().int().min(0),
+});
+
+/** Sent by the chrome renderer to suspend/restore the terminal WebContentsView so a
+ * chrome-level modal (e.g. NewSessionDialog) is not obscured by the native overlay. */
+export const LayoutModalPayloadSchema = z.object({
+  open: z.boolean(),
 });
 
 export const SessionCreateForPanePayloadSchema = z.object({
