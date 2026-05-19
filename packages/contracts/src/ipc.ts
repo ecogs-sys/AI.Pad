@@ -4,6 +4,7 @@ import {
   SessionCreateOptionsSchema,
   SessionIdSchema,
   SessionInfoSchema,
+  ShellSchema,
 } from './session.js';
 
 /**
@@ -14,6 +15,7 @@ export const IpcChannel = {
   // Requests (renderer -> main)
   SessionCreate: 'core.session.create',
   SessionCreateDefault: 'core.session.create-default',
+  SessionCreateForPane: 'core.session.create-for-pane',
   SessionWrite: 'core.session.write',
   SessionResize: 'core.session.resize',
   SessionClose: 'core.session.close',
@@ -65,6 +67,13 @@ export const LayoutShowPayloadSchema = z.object({
 
 export const LayoutSetSidebarWidthPayloadSchema = z.object({
   widthPx: z.number().int().min(0),
+});
+
+export const SessionCreateForPanePayloadSchema = z.object({
+  shell: ShellSchema,
+  cwd: z.string().min(1),
+  cols: z.number().int().positive().default(80),
+  rows: z.number().int().positive().default(24),
 });
 
 // --- Event payloads ---

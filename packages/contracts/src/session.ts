@@ -51,3 +51,6 @@ export const AttentionEventSchema = z.object({
   timestamp: z.number().int(),
 });
 export type AttentionEvent = z.infer<typeof AttentionEventSchema>;
+
+export const TabIdSchema = z.string().min(1);
+export type TabId = z.infer<typeof TabIdSchema>;
