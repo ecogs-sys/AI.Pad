@@ -18,8 +18,7 @@
   "nodeGypRebuild": false,
   "npmRebuild": false,
   "win": {
-    "target": ["nsis"],
-    "signAndEditExecutable": false
+    "target": ["nsis"]
   },
   "mac": {
     "target": ["dmg"],
