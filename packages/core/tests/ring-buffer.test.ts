@@ -42,6 +42,18 @@ describe('RingBuffer', () => {
     expect(buf.snapshot().toString('utf8')).toBe('cdefgh');
   });
 
+  it('preserves multi-byte UTF-8 across writes split mid-character', () => {
+    const original = 'héllo — 日本語 😀';
+    const bytes = Buffer.from(original, 'utf8');
+    const buf = new RingBuffer(256);
+    // Write the bytes in small chunks that deliberately split multi-byte sequences.
+    for (let i = 0; i < bytes.length; i += 3) {
+      buf.write(bytes.subarray(i, i + 3));
+    }
+    // snapshot() is byte-exact, so a full decode reproduces the original string.
+    expect(new TextDecoder().decode(buf.snapshot())).toBe(original);
+  });
+
   it('throws when constructed with a non-positive capacity', () => {
     expect(() => new RingBuffer(0)).toThrow();
     expect(() => new RingBuffer(-1)).toThrow();
