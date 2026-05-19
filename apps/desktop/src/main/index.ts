@@ -121,6 +121,8 @@ ipcRouter.onSetSidebarWidth((widthPx) => {
   viewManager?.setSidebarWidth(widthPx);
 });
 
+ipcRouter.onSessionCreate((opts) => createTabSession(opts));
+
 async function createChromeWindow(): Promise<void> {
   chromeWindow = new BrowserWindow({
     width: 1280,

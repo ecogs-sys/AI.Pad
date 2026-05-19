@@ -1,9 +1,10 @@
-import type { SessionId, SessionInfo, AttentionEvent } from '@aipad/contracts';
+import type { SessionId, SessionInfo, AttentionEvent, Shell } from '@aipad/contracts';
 import { IpcChannel } from '@aipad/contracts';
 import type { PreloadBridge } from '@aipad/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
 import { Sidebar, type SidebarRowVm } from './sidebar.js';
 import { emptyState, type ChromeState, type SessionState } from './state.js';
+import { showNewSessionDialog } from './new-session-dialog.js';
 
 export interface LayoutDeps {
   bridge: PreloadBridge;
@@ -77,14 +78,42 @@ export class LayoutManager {
   // --- Public actions invoked by TabStrip/Sidebar callbacks and keyboard ---
 
   async newTab(): Promise<void> {
-    const info = (await this.bridge.send(IpcChannel.SessionCreateDefault)) as
-      | SessionInfo
-      | { error: string };
+    await this.openNewTabDialog();
+  }
+
+  async openNewTabDialog(): Promise<void> {
+    const mount = document.getElementById('dialog-mount');
+    if (!mount) return;
+    const result = await showNewSessionDialog(mount, {
+      defaultShell: this.platformDefaultShell(),
+      defaultCwd: this.platformDefaultCwd(),
+    });
+    if (!result) return;
+    const info = (await this.bridge.send(IpcChannel.SessionCreate, {
+      shell: result.shell,
+      cwd: result.cwd,
+      cols: 80,
+      rows: 24,
+    })) as SessionInfo | { error: string };
     if ('error' in info) {
       console.error('[chrome] new tab failed:', info.error);
-      return;
     }
-    // SessionCreated event will arrive and populate state; nothing else to do.
+  }
+
+  private platformDefaultShell(): Shell {
+    const ua = navigator.userAgent;
+    if (ua.includes('Windows')) return 'pwsh';
+    if (ua.includes('Mac OS')) return 'zsh';
+    return 'bash';
+  }
+
+  private platformDefaultCwd(): string {
+    // Chrome renderer can't read $HOME directly; fall back to the last-used cwd from state,
+    // otherwise '~' which the platform shell will expand.
+    for (const session of this.state.sessions.values()) {
+      if (session.info.cwd) return session.info.cwd;
+    }
+    return '~';
   }
 
   async closeTab(sessionId: SessionId): Promise<void> {

@@ -11,6 +11,7 @@ import {
 } from '@aipad/contracts';
 import type {
   AttentionEvent,
+  SessionCreateOptions,
   SessionId,
   SessionInfo,
   SessionReplayResponse,
@@ -27,11 +28,13 @@ import type { SessionManager } from './session-manager.js';
  */
 export type LayoutShowCallback = (sessionId: SessionId) => void;
 export type SetSidebarWidthCallback = (widthPx: number) => void;
+export type SessionCreateCallback = (opts: SessionCreateOptions) => Promise<SessionInfo>;
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
   private layoutShowCallback: LayoutShowCallback | null = null;
   private setSidebarWidthCallback: SetSidebarWidthCallback | null = null;
+  private sessionCreateCallback: SessionCreateCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -50,16 +53,23 @@ export class IpcRouter {
     this.setSidebarWidthCallback = cb;
   }
 
+  onSessionCreate(cb: SessionCreateCallback): void {
+    this.sessionCreateCallback = cb;
+  }
+
   subscribe(wc: WebContents): void {
     this.subscribers.add(wc);
     wc.once('destroyed', () => this.subscribers.delete(wc));
   }
 
   private bindRequests(): void {
-    this.ipcMain.handle(IpcChannel.SessionCreate, (_e, raw): SessionInfo | { error: string } => {
+    this.ipcMain.handle(IpcChannel.SessionCreate, async (_e, raw): Promise<SessionInfo | { error: string }> => {
       const parsed = SessionCreateOptionsSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
       try {
+        if (this.sessionCreateCallback) {
+          return await this.sessionCreateCallback(parsed.data);
+        }
         return this.manager.create(parsed.data).info();
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };
