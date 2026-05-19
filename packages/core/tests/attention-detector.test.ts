@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AttentionDetector } from '../src/attention-detector.js';
 import type { AttentionEvent } from '@aipad/contracts';
 
@@ -117,5 +117,91 @@ describe('AttentionDetector', () => {
     expect(eA).toHaveLength(0); // OSC not terminated
     expect(eB).toHaveLength(1); // plain BEL on independent detector
     expect(eB[0]?.signal).toBe('bell');
+  });
+
+  it('emits idle when output ends in a prompt and timer expires', async () => {
+    vi.useFakeTimers();
+    try {
+      const d = new AttentionDetector();
+      const events = collect(d);
+      d.process(Buffer.from('PS C:\\Users\\me> '));
+      vi.advanceTimersByTime(1600);
+      expect(events.some((e) => e.signal === 'idle')).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not emit idle when the tail is not prompt-like', async () => {
+    vi.useFakeTimers();
+    try {
+      const d = new AttentionDetector();
+      const events = collect(d);
+      d.process(Buffer.from('Running tests...\nstill running'));
+      vi.advanceTimersByTime(2000);
+      expect(events.some((e) => e.signal === 'idle')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resets the idle timer on new output', () => {
+    vi.useFakeTimers();
+    try {
+      const d = new AttentionDetector();
+      const events = collect(d);
+      d.process(Buffer.from('PS> '));
+      vi.advanceTimersByTime(1000);
+      d.process(Buffer.from('running...'));
+      vi.advanceTimersByTime(1000);
+      expect(events.some((e) => e.signal === 'idle')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('only emits one idle per quiet window', () => {
+    vi.useFakeTimers();
+    try {
+      const d = new AttentionDetector();
+      const events = collect(d);
+      d.process(Buffer.from('$ '));
+      vi.advanceTimersByTime(5000);
+      const idles = events.filter((e) => e.signal === 'idle');
+      expect(idles).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-arms after new output then quiet again', () => {
+    vi.useFakeTimers();
+    try {
+      const d = new AttentionDetector();
+      const events = collect(d);
+      d.process(Buffer.from('% '));
+      vi.advanceTimersByTime(1600);
+      d.process(Buffer.from('result\n# '));
+      vi.advanceTimersByTime(1600);
+      const idles = events.filter((e) => e.signal === 'idle');
+      expect(idles).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('idle signal has confidence 0.7 and snippet contains the prompt', () => {
+    vi.useFakeTimers();
+    try {
+      const d = new AttentionDetector();
+      const events = collect(d);
+      d.process(Buffer.from('PS> '));
+      vi.advanceTimersByTime(1600);
+      const idle = events.find((e) => e.signal === 'idle');
+      expect(idle?.confidence).toBe(0.7);
+      expect(idle?.snippet).toMatch(/PS> $/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
