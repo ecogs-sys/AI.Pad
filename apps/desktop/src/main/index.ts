@@ -8,6 +8,7 @@ import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu } from './app-menu.js';
 import { bootstrapSessions } from './session-bootstrap.js';
+import { setupAutoUpdate } from './auto-update.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -176,6 +177,8 @@ async function createChromeWindow(): Promise<void> {
     chromeWindow: () => chromeWindow,
     focusedSessionId: () => focusedSessionId,
   });
+
+  setupAutoUpdate();
 }
 
 const crashCounters = new Map<string, number[]>(); // sessionId → recent crash timestamps
