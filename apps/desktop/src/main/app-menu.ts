@@ -17,7 +17,7 @@ export function buildAppMenu(
   chromeWindow: () => BrowserWindow | null,
   getActiveTerminalView: () => WebContentsView | null,
 ): Menu {
-  function sendTerminal(action: 'splitHorizontal' | 'splitVertical'): void {
+  function sendTerminal(action: 'splitHorizontal' | 'splitVertical' | 'closePane'): void {
     const view = getActiveTerminalView();
     view?.webContents.send(IpcChannel.TerminalAction, { action });
   }
@@ -40,6 +40,7 @@ export function buildAppMenu(
     { type: 'separator' },
     { label: 'Split Horizontally', accelerator: Bindings.splitHorizontal.accelerator, click: () => sendTerminal('splitHorizontal') },
     { label: 'Split Vertically',   accelerator: Bindings.splitVertical.accelerator,   click: () => sendTerminal('splitVertical') },
+    { label: 'Close Pane',         accelerator: Bindings.closePane.accelerator,       click: () => sendTerminal('closePane') },
   ];
 
   const viewSubmenu: MenuItemConstructorOptions[] = [

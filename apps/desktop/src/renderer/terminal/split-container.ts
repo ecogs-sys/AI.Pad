@@ -131,6 +131,46 @@ export class SplitContainer {
     });
   }
 
+  /** Close the focused pane and promote its sibling. No-op for a single-pane tab —
+   * the tab-level close (Ctrl+W) handles that case. */
+  closeFocusedPane(): void {
+    if (this.root.kind === 'leaf') return;
+    const target = this.focused;
+    const parent = this.findParent(this.root, target);
+    if (!parent) return;
+    const sibling = parent.a === target ? parent.b : parent.a;
+
+    // End the pane's session and tear down its terminal.
+    target.host.dispose();
+    void this.bridge.send(IpcChannel.SessionClose, { sessionId: target.sessionId });
+
+    // Replace the parent branch with the sibling subtree, in the DOM and the tree.
+    sibling.el.style.flex = '1 1 100%';
+    parent.el.parentElement?.replaceChild(sibling.el, parent.el);
+    if (this.root === parent) {
+      this.root = sibling;
+    } else {
+      const grandparent = this.findParent(this.root, parent);
+      if (grandparent) {
+        if (grandparent.a === parent) grandparent.a = sibling;
+        else grandparent.b = sibling;
+      }
+    }
+
+    this.focused = this.firstLeaf(sibling);
+    this.focused.el.focus();
+  }
+
+  private findParent(node: SplitNode, target: SplitNode): BranchNode | null {
+    if (node.kind === 'leaf') return null;
+    if (node.a === target || node.b === target) return node;
+    return this.findParent(node.a, target) ?? this.findParent(node.b, target);
+  }
+
+  private firstLeaf(node: SplitNode): LeafNode {
+    return node.kind === 'leaf' ? node : this.firstLeaf(node.a);
+  }
+
   private replaceInTree(node: SplitNode, target: SplitNode, replacement: SplitNode): SplitNode | null {
     if (node === target) return replacement;
     if (node.kind === 'leaf') return null;

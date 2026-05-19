@@ -140,7 +140,7 @@ export const ActionInvokePayloadSchema = z.object({
 });
 
 export const TerminalActionPayloadSchema = z.object({
-  action: z.enum(['splitHorizontal', 'splitVertical']),
+  action: z.enum(['splitHorizontal', 'splitVertical', 'closePane']),
 });
 
 // Re-export for caller convenience.
