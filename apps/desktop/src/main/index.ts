@@ -42,37 +42,37 @@ function rendererEntry(name: 'chrome' | 'terminal'): { url?: string; file?: stri
   return { file: join(__dirname, `../renderer/${name === 'chrome' ? 'index' : 'terminal-host'}.html`) };
 }
 
+async function createSessionView(sessionId: string): Promise<void> {
+  if (!viewManager) return;
+  viewManager.create(sessionId);
+  ipcRouter.subscribe(viewManager.get(sessionId)!.webContents);
+  const entry = rendererEntry('terminal');
+  await viewManager.load(sessionId, {
+    ...(entry.url ? { url: entry.url } : {}),
+    ...(entry.file ? { file: entry.file } : {}),
+    query: { sessionId },
+  });
+  viewManager.show(sessionId);
+}
+
+async function createTabSession(opts: Parameters<SessionManager['create']>[0]): Promise<SessionInfo> {
+  const session = sessionManager.create(opts);
+  await createSessionView(session.id);
+  return session.info();
+}
+
 // IPC: renderer asks main to spawn the platform default shell at $HOME.
-ipcMain.handle(IpcChannel.SessionCreateDefault, (): SessionInfo | { error: string } => {
+ipcMain.handle(IpcChannel.SessionCreateDefault, async (): Promise<SessionInfo | { error: string }> => {
   try {
-    const session = sessionManager.create({
+    return await createTabSession({
       shell: defaultShell(),
       cwd: homedir(),
       cols: 80,
       rows: 24,
     });
-    return session.info();
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
-});
-
-// Every newly created session (from any path — initial spawn, renderer request, etc.) gets
-// a fresh WebContentsView + replay-aware terminal page.
-sessionManager.on('sessionCreated', async (info) => {
-  if (!viewManager) return;
-  viewManager.create(info.id);
-  ipcRouter.subscribe(viewManager.get(info.id)!.webContents);
-  const entry = rendererEntry('terminal');
-  await viewManager.load(info.id, {
-    ...(entry.url ? { url: entry.url } : {}),
-    ...(entry.file ? { file: entry.file } : {}),
-    query: { sessionId: info.id },
-  });
-  // Make the newly created session the visible one. The renderer's LayoutManager will
-  // confirm by sending its own LayoutShow message, but we show here so there's never a
-  // moment where no view is visible.
-  viewManager.show(info.id);
 });
 
 sessionManager.on('sessionExited', (sessionId) => {
@@ -119,9 +119,8 @@ async function createChromeWindow(): Promise<void> {
   })();
   ipcRouter.subscribe(chromeWindow.webContents);
 
-  // Create the initial session so the app boots with something visible. The sessionCreated
-  // listener above takes care of the matching view.
-  sessionManager.create({
+  // Create the initial session so the app boots with something visible.
+  await createTabSession({
     shell: defaultShell(),
     cwd: homedir(),
     cols: 80,
