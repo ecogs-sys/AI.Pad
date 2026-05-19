@@ -7,6 +7,7 @@ import type { Shell, SessionInfo } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu } from './app-menu.js';
+import { bootstrapSessions } from './session-bootstrap.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -147,11 +148,11 @@ async function createChromeWindow(): Promise<void> {
   ipcRouter.subscribe(chromeWindow.webContents);
 
   // Create the initial session so the app boots with something visible.
-  await createTabSession({
-    shell: defaultShell(),
-    cwd: homedir(),
-    cols: 80,
-    rows: 24,
+  await bootstrapSessions({
+    loadPersisted: () => sessionStore.load(),
+    createTabSession: (opts) => createTabSession(opts),
+    defaultShell,
+    defaultCwd: () => homedir(),
   });
 
   chromeWindow.on('closed', () => {
