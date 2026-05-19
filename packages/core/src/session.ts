@@ -77,6 +77,8 @@ export class Session extends EventEmitter {
     this.pty.onExit(({ exitCode, signal }) => {
       this._status = 'exited';
       this._exitCode = exitCode;
+      // The session is done — clear the detector's pending idle timer.
+      this.detector.dispose();
       this.emit('exit', { exitCode, signal: signal != null ? String(signal) : null });
     });
   }

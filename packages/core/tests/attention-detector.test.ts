@@ -190,6 +190,20 @@ describe('AttentionDetector', () => {
     }
   });
 
+  it('dispose() clears a pending idle timer so no idle fires afterwards', () => {
+    vi.useFakeTimers();
+    try {
+      const d = new AttentionDetector();
+      const events = collect(d);
+      d.process(Buffer.from('PS> '));
+      d.dispose();
+      vi.advanceTimersByTime(5000);
+      expect(events.some((e) => e.signal === 'idle')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('idle signal has confidence 0.7 and snippet contains the prompt', () => {
     vi.useFakeTimers();
     try {
