@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
-import { IpcChannel, IpcRouter, SessionManager } from '@aipad/core';
+import { IpcChannel, IpcRouter, SessionManager, SessionStore } from '@aipad/core';
 import type { Shell, SessionInfo } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
@@ -19,6 +19,24 @@ if (!app.requestSingleInstanceLock()) {
 
 const sessionManager = new SessionManager();
 const ipcRouter = new IpcRouter(ipcMain, sessionManager);
+const sessionStore = new SessionStore(app.getPath('userData'));
+const tabMeta = new Map<string, { tabId: string; shell: Shell; cwd: string; title?: string }>();
+
+function snapshotTabs(): {
+  version: 1;
+  tabs: Array<{ tabId: string; shell: Shell; cwd: string; title?: string }>;
+  focusedTabId: string | null;
+} {
+  return {
+    version: 1,
+    tabs: Array.from(tabMeta.values()),
+    focusedTabId: focusedSessionId,
+  };
+}
+
+function persistTabs(): void {
+  void sessionStore.save(snapshotTabs());
+}
 
 let chromeWindow: BrowserWindow | null = null;
 let viewManager: ViewManager | null = null;
@@ -57,6 +75,13 @@ async function createSessionView(sessionId: string): Promise<void> {
 
 async function createTabSession(opts: Parameters<SessionManager['create']>[0]): Promise<SessionInfo> {
   const session = sessionManager.create(opts);
+  tabMeta.set(session.id, {
+    tabId: session.id,
+    shell: opts.shell,
+    cwd: opts.cwd,
+    ...(opts.title ? { title: opts.title } : {}),
+  });
+  persistTabs();
   await createSessionView(session.id);
   return session.info();
 }
@@ -81,6 +106,8 @@ sessionManager.on('sessionExited', (sessionId) => {
   // Plan 3 may revisit if a "preserve exited tab" mode is wanted.
   viewManager?.destroy(sessionId);
   crashCounters.delete(sessionId);
+  tabMeta.delete(sessionId);
+  persistTabs();
 });
 
 let focusedSessionId: string | null = null;
