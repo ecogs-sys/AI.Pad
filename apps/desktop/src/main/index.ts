@@ -169,6 +169,18 @@ ipcRouter.onLayoutModal((open) => {
   else viewManager?.resume();
 });
 
+// Construct the NotificationBridge exactly once, at module scope, before any session
+// exists. It reads chromeWindow/viewManager/focusedSessionId via lazy getters, so it
+// survives window recreation on macOS without re-registering its sessionAttention
+// listener (which previously leaked + duplicated notifications on every reopen).
+new NotificationBridge({
+  sessionManager,
+  viewManager: () => viewManager,
+  chromeWindow: () => chromeWindow,
+  focusedSessionId: () => focusedSessionId,
+  tabIdForSession: (id) => (paneOwnership.get(id) ?? id),
+});
+
 async function createChromeWindow(): Promise<void> {
   chromeWindow = new BrowserWindow({
     width: 1280,
@@ -215,13 +227,6 @@ async function createChromeWindow(): Promise<void> {
   chromeWindow.on('closed', () => {
     chromeWindow = null;
     viewManager = null;
-  });
-
-  const _bridge = new NotificationBridge({
-    sessionManager,
-    viewManager: () => viewManager,
-    chromeWindow: () => chromeWindow,
-    focusedSessionId: () => focusedSessionId,
   });
 
   void setupAutoUpdate();
