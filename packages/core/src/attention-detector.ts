@@ -72,6 +72,17 @@ export class AttentionDetector extends EventEmitter {
     this.idleEmittedForCurrentQuiet = false;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => this.checkIdle(), IDLE_MS);
+    // Do not let a pending idle timer keep the Node event loop (or a test run) alive.
+    this.idleTimer.unref?.();
+  }
+
+  /** Clear any pending idle timer and drop listeners. Call when the session ends. */
+  dispose(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+    this.removeAllListeners();
   }
 
   private checkIdle(): void {
