@@ -115,6 +115,15 @@ sessionManager.on('sessionExited', (sessionId) => {
   crashCounters.delete(sessionId);
   tabMeta.delete(sessionId);
   persistTabs();
+  // Pane sessions (no tabMeta entry) that belonged to the destroyed view's tab
+  // are orphaned. We can't tell which panes belonged to which tab from main alone,
+  // so we rely on the renderer's window-closed event to kill them. As a safety net,
+  // close any session whose view doesn't exist after destroy:
+  for (const info of sessionManager.list()) {
+    if (!tabMeta.has(info.id) && !viewManager?.has(info.id)) {
+      sessionManager.close(info.id);
+    }
+  }
 });
 
 let focusedSessionId: string | null = null;
@@ -159,12 +168,17 @@ async function createChromeWindow(): Promise<void> {
   ipcRouter.subscribe(chromeWindow.webContents);
 
   // Create the initial session so the app boots with something visible.
-  await bootstrapSessions({
+  const restoredFocus = await bootstrapSessions({
     loadPersisted: () => sessionStore.load(),
     createTabSession: (opts) => createTabSession(opts),
     defaultShell,
     defaultCwd: () => homedir(),
   });
+  if (restoredFocus) {
+    focusedSessionId = restoredFocus;
+    viewManager?.show(restoredFocus);
+    chromeWindow?.webContents.send(IpcChannel.LayoutShow, { sessionId: restoredFocus });
+  }
 
   chromeWindow.on('closed', () => {
     chromeWindow = null;
