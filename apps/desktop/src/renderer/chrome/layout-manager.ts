@@ -4,7 +4,7 @@ import type { PreloadBridge } from '@aipad/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
 import { Sidebar, type SidebarRowVm } from './sidebar.js';
 import { emptyState, type ChromeState, type SessionState } from './state.js';
-import { showNewSessionDialog } from './new-session-dialog.js';
+import { showNewSessionDialog, showRenameDialog } from './new-session-dialog.js';
 
 export interface LayoutDeps {
   bridge: PreloadBridge;
@@ -64,6 +64,14 @@ export class LayoutManager {
     this.bridge.on(IpcChannel.LayoutShow, (raw) => {
       const e = raw as { sessionId: SessionId };
       if (this.state.sessions.has(e.sessionId)) this.focus(e.sessionId);
+    });
+    // Title changes (rename) are echoed by main — keep tab/sidebar labels in sync.
+    this.bridge.on(IpcChannel.SessionTitleChanged, (raw) => {
+      const e = raw as { sessionId: SessionId; title: string };
+      const session = this.state.sessions.get(e.sessionId);
+      if (!session) return;
+      session.info = { ...session.info, title: e.title };
+      this.render();
     });
 
     // Pull initial session list (main may have already spawned the boot session).
@@ -155,11 +163,21 @@ export class LayoutManager {
     this.render();
   }
 
-  renameTab(sessionId: SessionId, newTitle: string): void {
+  async renameTab(sessionId: SessionId): Promise<void> {
     const session = this.state.sessions.get(sessionId);
     if (!session) return;
-    session.info = { ...session.info, title: newTitle };
-    this.render();
+    const mount = document.getElementById('dialog-mount');
+    if (!mount) return;
+    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    let newTitle: string | null;
+    try {
+      newTitle = await showRenameDialog(mount, session.info.title);
+    } finally {
+      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+    }
+    if (!newTitle) return;
+    // Main echoes SessionTitleChanged, which updates local state + persists.
+    await this.bridge.send(IpcChannel.SessionSetTitle, { sessionId, title: newTitle });
   }
 
   async duplicateTab(sessionId: SessionId): Promise<void> {

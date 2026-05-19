@@ -143,6 +143,15 @@ sessionManager.on('sessionExited', (sessionId) => {
   }
 });
 
+// Persist tab renames: when a session's title changes, update tabMeta and re-save.
+sessionManager.on('sessionTitleChanged', (sessionId, title) => {
+  const meta = tabMeta.get(sessionId);
+  if (meta) {
+    meta.title = title;
+    persistTabs();
+  }
+});
+
 let focusedSessionId: string | null = null;
 ipcRouter.onLayoutShow((sessionId) => {
   focusedSessionId = sessionId;

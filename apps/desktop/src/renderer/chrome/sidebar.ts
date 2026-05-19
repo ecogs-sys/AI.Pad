@@ -10,7 +10,8 @@ export interface SidebarRowVm {
 export interface SidebarCallbacks {
   onRowClick: (sessionId: SessionId) => void;
   onToggle: () => void;
-  onRename: (sessionId: SessionId, newTitle: string) => void;
+  /** Opens the rename modal; the LayoutManager owns the dialog + IPC. */
+  onRename: (sessionId: SessionId) => void;
   onDuplicate: (sessionId: SessionId) => void;
   onClose: (sessionId: SessionId) => void;
 }
@@ -73,13 +74,13 @@ export class Sidebar {
       el.addEventListener('click', () => this.callbacks.onRowClick(row.info.id));
       el.addEventListener('contextmenu', (ev) => {
         ev.preventDefault();
-        this.showContextMenu(ev.clientX, ev.clientY, row.info.id, row.info.title);
+        this.showContextMenu(ev.clientX, ev.clientY, row.info.id);
       });
       this.listEl.appendChild(el);
     }
   }
 
-  private showContextMenu(x: number, y: number, sessionId: SessionId, currentTitle: string): void {
+  private showContextMenu(x: number, y: number, sessionId: SessionId): void {
     const existing = document.getElementById('sidebar-context-menu');
     existing?.remove();
     const menu = document.createElement('div');
@@ -94,17 +95,25 @@ export class Sidebar {
       item.addEventListener('click', () => { menu.remove(); fn(); });
       menu.appendChild(item);
     };
-    mk('Rename', () => {
-      const newTitle = prompt('Rename tab', currentTitle);
-      if (newTitle && newTitle.trim()) this.callbacks.onRename(sessionId, newTitle.trim());
-    });
+    mk('Rename', () => this.callbacks.onRename(sessionId));
     mk('Duplicate', () => this.callbacks.onDuplicate(sessionId));
     mk('Close', () => this.callbacks.onClose(sessionId));
     document.body.appendChild(menu);
-    const dismiss = (ev: MouseEvent): void => {
-      if (!menu.contains(ev.target as Node)) { menu.remove(); document.removeEventListener('mousedown', dismiss); }
+    const close = (): void => {
+      menu.remove();
+      document.removeEventListener('mousedown', dismiss);
+      document.removeEventListener('keydown', onKey);
     };
-    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+    const dismiss = (ev: MouseEvent): void => {
+      if (!menu.contains(ev.target as Node)) close();
+    };
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') close();
+    };
+    setTimeout(() => {
+      document.addEventListener('mousedown', dismiss);
+      document.addEventListener('keydown', onKey);
+    }, 0);
   }
 }
 

@@ -6,6 +6,7 @@ import {
   SessionWritePayloadSchema,
   SessionResizePayloadSchema,
   SessionClosePayloadSchema,
+  SessionSetTitlePayloadSchema,
   SessionReplayPayloadSchema,
   LayoutShowPayloadSchema,
   LayoutSetSidebarWidthPayloadSchema,
@@ -128,6 +129,15 @@ export class IpcRouter {
       const parsed = SessionClosePayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
       this.manager.close(parsed.data.sessionId);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.SessionSetTitle, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = SessionSetTitlePayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      // setTitle emits titleChanged -> broadcast as SessionTitleChanged; main also
+      // listens to persist the new title into tabMeta.
+      this.manager.get(parsed.data.sessionId)?.setTitle(parsed.data.title);
       return { ok: true };
     });
 
