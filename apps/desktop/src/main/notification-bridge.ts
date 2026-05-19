@@ -10,6 +10,17 @@ export interface NotificationBridgeDeps {
   viewManager: () => ViewManager | null;
   chromeWindow: () => BrowserWindow | null;
   focusedSessionId: () => SessionId | null;
+  /** Resolve a session id to the id of the tab that owns it. For a tab session this
+   * is the id itself; for a pane session it is the owning tab's primary session id. */
+  tabIdForSession: (sessionId: SessionId) => SessionId;
+}
+
+/** OS notification titles must stay short; matches NotificationRequestSchema's 120 cap. */
+const NOTIFICATION_TITLE_MAX = 120;
+function clampTitle(title: string): string {
+  return title.length <= NOTIFICATION_TITLE_MAX
+    ? title
+    : `${title.slice(0, NOTIFICATION_TITLE_MAX - 1)}…`;
 }
 
 export class NotificationBridge {
@@ -25,13 +36,14 @@ export class NotificationBridge {
     const win = this.deps.chromeWindow();
     const focused = this.deps.focusedSessionId();
     const windowFocused = win?.isFocused() ?? false;
-    const tabFocused = focused === ev.sessionId;
+    // Attention may come from a pane — compare against the owning tab.
+    const tabFocused = focused === this.deps.tabIdForSession(ev.sessionId);
     if (windowFocused && tabFocused) return;
     const info = this.deps.sessionManager.list().find((s) => s.id === ev.sessionId);
-    const title = info?.title ?? 'AI.Pad session';
+    const title = clampTitle(`${info?.title ?? 'AI.Pad session'} needs you`);
     this.service.notify({
       sessionId: ev.sessionId,
-      title: `${title} needs you`,
+      title,
       body: ev.snippet?.trim().slice(0, 240) ?? `Signal: ${ev.signal}`,
     });
   }
@@ -42,9 +54,11 @@ export class NotificationBridge {
       if (win.isMinimized()) win.restore();
       win.focus();
     }
+    // A pane has no view of its own — focus the tab that owns it.
+    const tabId = this.deps.tabIdForSession(sessionId);
     const vm = this.deps.viewManager();
-    vm?.show(sessionId);
+    vm?.show(tabId);
     // Also tell the chrome renderer to update its focused tab + clear the badge.
-    win?.webContents.send(IpcChannel.LayoutShow, { sessionId });
+    win?.webContents.send(IpcChannel.LayoutShow, { sessionId: tabId });
   }
 }
