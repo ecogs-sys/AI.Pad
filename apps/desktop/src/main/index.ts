@@ -55,6 +55,11 @@ function persistTabs(): void {
   void sessionStore.save(snapshotTabs());
 }
 
+// Surface persistence failures instead of swallowing them (F19).
+sessionStore.onError((err) => {
+  console.warn('[main] layout not saved:', err instanceof Error ? err.message : err);
+});
+
 let chromeWindow: BrowserWindow | null = null;
 let viewManager: ViewManager | null = null;
 

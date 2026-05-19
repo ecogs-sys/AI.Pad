@@ -72,6 +72,17 @@ describe('SessionStore', () => {
     expect(await store.load()).toEqual(sample);
   });
 
+  it('invokes onError when an atomic write fails', async () => {
+    // Point the store at a path that is an existing file, so mkdir/write fails.
+    const filePath = join(dir, 'not-a-dir');
+    writeFileSync(filePath, 'x');
+    const store = new SessionStore(filePath);
+    let captured: unknown = null;
+    store.onError((err) => { captured = err; });
+    await store.save(sample);
+    expect(captured).not.toBeNull();
+  });
+
   it('serializes JSON with stable shape (sorted keys not required, but parseable)', async () => {
     const store = new SessionStore(dir);
     await store.save(sample);

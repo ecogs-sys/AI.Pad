@@ -11,8 +11,16 @@ const FILE_NAME = 'sessions.json';
  */
 export class SessionStore {
   private writeChain: Promise<void> = Promise.resolve();
+  private errorCallback: ((err: unknown) => void) | null = null;
 
   constructor(private readonly dir: string) {}
+
+  /** Register a callback invoked when an atomic write fails (disk full, permissions,
+   * lock). save() stays non-throwing so callers are not disrupted, but the failure is
+   * no longer silent. */
+  onError(cb: (err: unknown) => void): void {
+    this.errorCallback = cb;
+  }
 
   async load(): Promise<PersistedTabs | null> {
     const path = join(this.dir, FILE_NAME);
@@ -43,7 +51,12 @@ export class SessionStore {
    * so two simultaneous writes can't tear the file.
    */
   save(payload: PersistedTabs): Promise<void> {
-    this.writeChain = this.writeChain.then(() => this.writeAtomic(payload)).catch(() => {});
+    this.writeChain = this.writeChain
+      .then(() => this.writeAtomic(payload))
+      .catch((err) => {
+        // Surface the failure (F19) but keep the chain alive so later saves still run.
+        this.errorCallback?.(err);
+      });
     return this.writeChain;
   }
 
