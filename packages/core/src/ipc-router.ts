@@ -11,6 +11,7 @@ import {
   LayoutShowPayloadSchema,
   LayoutSetSidebarWidthPayloadSchema,
   LayoutModalPayloadSchema,
+  LayoutReorderTabsPayloadSchema,
 } from '@aipad/contracts';
 import type {
   AttentionEvent,
@@ -37,6 +38,7 @@ export type SessionCreateForPaneCallback = (
   tabId: SessionId,
 ) => SessionInfo;
 export type LayoutModalCallback = (open: boolean) => void;
+export type ReorderTabsCallback = (order: SessionId[]) => void;
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
@@ -45,6 +47,7 @@ export class IpcRouter {
   private sessionCreateCallback: SessionCreateCallback | null = null;
   private sessionCreateForPaneCallback: SessionCreateForPaneCallback | null = null;
   private layoutModalCallback: LayoutModalCallback | null = null;
+  private reorderTabsCallback: ReorderTabsCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -73,6 +76,10 @@ export class IpcRouter {
 
   onLayoutModal(cb: LayoutModalCallback): void {
     this.layoutModalCallback = cb;
+  }
+
+  onReorderTabs(cb: ReorderTabsCallback): void {
+    this.reorderTabsCallback = cb;
   }
 
   subscribe(wc: WebContents): void {
@@ -175,6 +182,13 @@ export class IpcRouter {
       const parsed = LayoutModalPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
       this.layoutModalCallback?.(parsed.data.open);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.LayoutReorderTabs, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutReorderTabsPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.reorderTabsCallback?.(parsed.data.order);
       return { ok: true };
     });
   }

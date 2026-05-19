@@ -23,6 +23,8 @@ const sessionManager = new SessionManager();
 const ipcRouter = new IpcRouter(ipcMain, sessionManager);
 const sessionStore = new SessionStore(app.getPath('userData'));
 const tabMeta = new Map<string, { tabId: string; shell: Shell; cwd: string; title?: string }>();
+/** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
+let tabOrder: string[] = [];
 /** pane session id -> owning tab's primary session id. */
 const paneOwnership = new Map<string, string>();
 
@@ -43,7 +45,8 @@ function snapshotTabs(): {
 } {
   return {
     version: 1,
-    tabs: Array.from(tabMeta.values()),
+    // Emit tabs in the authoritative order so a drag-reorder survives restart.
+    tabs: tabOrder.filter((id) => tabMeta.has(id)).map((id) => tabMeta.get(id)!),
     focusedTabId: focusedSessionId,
   };
 }
@@ -108,6 +111,7 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0]): 
     cwd: opts.cwd,
     ...(opts.title ? { title: opts.title } : {}),
   });
+  tabOrder.push(session.id);
   persistTabs();
   await createSessionView(session.id);
   return session.info();
@@ -135,6 +139,7 @@ sessionManager.on('sessionExited', (sessionId) => {
   crashCounters.delete(sessionId);
   if (tabMeta.has(sessionId)) {
     tabMeta.delete(sessionId);
+    tabOrder = tabOrder.filter((id) => id !== sessionId);
     persistTabs();
     // Close only the panes owned by this tab — never panes belonging to other tabs.
     closeTabPanes(sessionId);
@@ -176,6 +181,15 @@ ipcRouter.onSessionCreateForPane((opts, tabId) => {
 ipcRouter.onLayoutModal((open) => {
   if (open) viewManager?.suspend();
   else viewManager?.resume();
+});
+
+// Persist drag-reordered tab order (ignoring ids that are no longer tabs).
+ipcRouter.onReorderTabs((order) => {
+  const known = order.filter((id) => tabMeta.has(id));
+  // Keep any tabs the renderer did not mention (defensive) at the end.
+  for (const id of tabOrder) if (!known.includes(id) && tabMeta.has(id)) known.push(id);
+  tabOrder = known;
+  persistTabs();
 });
 
 // Construct the NotificationBridge exactly once, at module scope, before any session

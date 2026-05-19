@@ -160,6 +160,8 @@ export class LayoutManager {
       const beforeIdx = this.state.tabOrder.indexOf(beforeId);
       this.state.tabOrder.splice(beforeIdx, 0, moved);
     }
+    // Persist the new order so it survives a restart.
+    void this.bridge.send(IpcChannel.LayoutReorderTabs, { order: [...this.state.tabOrder] });
     this.render();
   }
 
