@@ -89,10 +89,17 @@ export class LayoutManager {
   async openNewTabDialog(): Promise<void> {
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
-    const result = await showNewSessionDialog(mount, {
-      defaultShell: this.platformDefaultShell(),
-      defaultCwd: this.platformDefaultCwd(),
-    });
+    // Suspend the terminal overlay so the modal is visible, restore it afterwards.
+    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    let result: { shell: Shell; cwd: string } | null;
+    try {
+      result = await showNewSessionDialog(mount, {
+        defaultShell: this.platformDefaultShell(),
+        defaultCwd: this.platformDefaultCwd(),
+      });
+    } finally {
+      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+    }
     if (!result) return;
     const info = (await this.bridge.send(IpcChannel.SessionCreate, {
       shell: result.shell,

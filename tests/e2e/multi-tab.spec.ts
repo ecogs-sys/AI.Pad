@@ -16,7 +16,8 @@ test('opening a 2nd tab and triggering BEL badges the inactive tab', async () =>
 
   // Open a 2nd tab via the chrome's "+" button.
   await chrome.locator('#new-tab').click();
-  // NewSessionDialog appears; accept defaults.
+  // NewSessionDialog appears and must be visible (not covered by the terminal view).
+  await expect(chrome.locator('#ns-open')).toBeVisible();
   await chrome.locator('#ns-open').click();
   await expect(chrome.locator('#tab-strip .tab')).toHaveCount(2, { timeout: 8_000 });
 
