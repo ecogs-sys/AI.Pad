@@ -26,6 +26,7 @@ export const Bindings = {
   toggleSidebar:   { id: 'toggleSidebar',   description: 'Toggle sidebar',      accelerator: 'CmdOrCtrl+B' },
   splitHorizontal: { id: 'splitHorizontal', description: 'Split horizontally', accelerator: 'CmdOrCtrl+\\' },
   splitVertical:   { id: 'splitVertical',   description: 'Split vertically',   accelerator: 'CmdOrCtrl+Shift+\\' },
+  closePane:       { id: 'closePane',       description: 'Close pane',         accelerator: 'CmdOrCtrl+Shift+W' },
 } as const satisfies Record<string, KeyBinding>;
 
 export type BindingId = keyof typeof Bindings;

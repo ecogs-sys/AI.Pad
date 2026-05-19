@@ -26,9 +26,10 @@ const splits = new SplitContainer({
 (window as unknown as { __aipadSplits: SplitContainer }).__aipadSplits = splits;
 
 bridge.on(IpcChannel.TerminalAction, (raw) => {
-  const e = raw as { action: 'splitHorizontal' | 'splitVertical' };
+  const e = raw as { action: 'splitHorizontal' | 'splitVertical' | 'closePane' };
   if (e.action === 'splitHorizontal') void splits.splitFocused('horizontal');
   else if (e.action === 'splitVertical') void splits.splitFocused('vertical');
+  else if (e.action === 'closePane') splits.closeFocusedPane();
 });
 
 console.info('[terminal] split container mounted; primary session', sessionId);
