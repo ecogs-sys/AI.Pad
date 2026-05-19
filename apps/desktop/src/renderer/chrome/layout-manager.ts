@@ -73,6 +73,14 @@ export class LayoutManager {
       session.info = { ...session.info, title: e.title };
       this.render();
     });
+    // A tab whose renderer crashed twice in 60s — mark it broken so the UI offers Restart.
+    this.bridge.on(IpcChannel.SessionTabBroken, (raw) => {
+      const e = raw as { sessionId: SessionId };
+      const session = this.state.sessions.get(e.sessionId);
+      if (!session) return;
+      session.broken = true;
+      this.render();
+    });
 
     // Pull initial session list (main may have already spawned the boot session).
     const list = (await this.bridge.send(IpcChannel.SessionList)) as SessionInfo[];
@@ -194,6 +202,21 @@ export class LayoutManager {
     if ('error' in info) console.error('[chrome] duplicate failed:', info.error);
   }
 
+  /** Restart a broken tab (recreate its renderer) or an exited tab (fresh shell).
+   * A running tab is left untouched. */
+  async restartTab(sessionId: SessionId): Promise<void> {
+    const session = this.state.sessions.get(sessionId);
+    if (!session) return;
+    if (session.broken) {
+      await this.bridge.send(IpcChannel.SessionRestartView, { sessionId });
+      session.broken = false;
+      this.render();
+    } else if (session.info.status === 'exited') {
+      await this.duplicateTab(sessionId);
+      await this.closeTab(sessionId);
+    }
+  }
+
   focus(sessionId: SessionId): void {
     if (!this.state.sessions.has(sessionId)) return;
     this.state.focusedId = sessionId;
@@ -249,6 +272,7 @@ export class LayoutManager {
       const fresh: SessionState = {
         info,
         attention: false,
+        broken: false,
         statusSinceMs: Date.now(),
       };
       this.state.sessions.set(info.id, fresh);
@@ -261,7 +285,7 @@ export class LayoutManager {
     const tabs: TabViewModel[] = this.state.tabOrder
       .map((id) => this.state.sessions.get(id))
       .filter((s): s is SessionState => !!s)
-      .map((s) => ({ info: s.info, attention: s.attention }));
+      .map((s) => ({ info: s.info, attention: s.attention, broken: s.broken }));
     this.tabStrip.render(tabs, this.state.focusedId);
 
     const rows: SidebarRowVm[] = this.state.tabOrder

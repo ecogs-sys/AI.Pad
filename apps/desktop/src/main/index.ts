@@ -132,21 +132,28 @@ ipcMain.handle(IpcChannel.SessionCreateDefault, async (): Promise<SessionInfo | 
 });
 
 sessionManager.on('sessionExited', (sessionId) => {
-  // Destroy the WebContentsView when the session exits. Plan 2's UX treats tab close
-  // as "kill the shell AND lose the scrollback" — matches Windows Terminal, VS Code, etc.
-  // Plan 3 may revisit if a "preserve exited tab" mode is wanted.
-  viewManager?.destroy(sessionId);
   crashCounters.delete(sessionId);
-  if (tabMeta.has(sessionId)) {
-    tabMeta.delete(sessionId);
-    tabOrder = tabOrder.filter((id) => id !== sessionId);
-    persistTabs();
-    // Close only the panes owned by this tab — never panes belonging to other tabs.
-    closeTabPanes(sessionId);
-  } else {
+  // Spec §7: a tab whose shell exits on its own becomes a read-only 'exited' tab —
+  // the WebContentsView is kept so scrollback stays readable and the user can
+  // Restart or Close it. Teardown happens only via an explicit core.session.close.
+  if (!tabMeta.has(sessionId)) {
     paneOwnership.delete(sessionId);
   }
 });
+
+/** Full teardown of a tab: destroy its view, its panes, persist, then kill the PTY.
+ * Invoked only on an explicit user close (core.session.close). */
+function closeTab(tabId: string): void {
+  closeTabPanes(tabId);
+  viewManager?.destroy(tabId);
+  crashCounters.delete(tabId);
+  if (tabMeta.has(tabId)) {
+    tabMeta.delete(tabId);
+    tabOrder = tabOrder.filter((id) => id !== tabId);
+    persistTabs();
+  }
+  sessionManager.close(tabId);
+}
 
 // Persist tab renames: when a session's title changes, update tabMeta and re-save.
 sessionManager.on('sessionTitleChanged', (sessionId, title) => {
@@ -190,6 +197,15 @@ ipcRouter.onReorderTabs((order) => {
   for (const id of tabOrder) if (!known.includes(id) && tabMeta.has(id)) known.push(id);
   tabOrder = known;
   persistTabs();
+});
+
+// Explicit user close → full tab teardown.
+ipcRouter.onSessionClose((sessionId) => closeTab(sessionId));
+
+// Restart a broken tab's renderer (PTY is still alive — recreate just the view).
+ipcRouter.onRestartView((sessionId) => {
+  crashCounters.delete(sessionId);
+  void recreateSessionView(sessionId);
 });
 
 // Construct the NotificationBridge exactly once, at module scope, before any session
@@ -256,6 +272,28 @@ async function createChromeWindow(): Promise<void> {
 }
 
 const crashCounters = new Map<string, number[]>(); // sessionId → recent crash timestamps
+
+/** Replace a tab's WebContentsView with a fresh one. The PTY session is untouched;
+ * TerminalHost.replay() reloads scrollback from the ring buffer. */
+async function recreateSessionView(sessionId: string): Promise<void> {
+  if (!viewManager) return;
+  const fresh = viewManager.replaceView(sessionId);
+  if (!fresh) return;
+  ipcRouter.subscribe(fresh.webContents);
+  const entry = rendererEntry('terminal');
+  const meta = tabMeta.get(sessionId);
+  await viewManager.load(sessionId, {
+    ...(entry.url ? { url: entry.url } : {}),
+    ...(entry.file ? { file: entry.file } : {}),
+    query: {
+      sessionId,
+      shell: meta?.shell ?? defaultShell(),
+      cwd: meta?.cwd ?? homedir(),
+    },
+  });
+  viewManager.show(sessionId);
+}
+
 function handleRendererCrash(sessionId: string): void {
   if (!viewManager) return;
   const now = Date.now();
@@ -263,29 +301,13 @@ function handleRendererCrash(sessionId: string): void {
   recent.push(now);
   crashCounters.set(sessionId, recent);
   if (recent.length >= 2) {
-    console.warn(`[main] tab ${sessionId} crashed twice in 60s; not auto-recovering.`);
+    // Spec §7: two crashes in 60s → stop auto-recovering, surface a broken state.
+    console.warn(`[main] tab ${sessionId} crashed twice in 60s; surfacing "needs restart".`);
+    chromeWindow?.webContents.send(IpcChannel.SessionTabBroken, { sessionId });
     return;
   }
   console.warn(`[main] tab ${sessionId} crashed; recreating view + replaying scrollback.`);
-  // Replacing the view re-loads the terminal page; replay() inside the new TerminalHost
-  // pulls the ring buffer snapshot via core.session.replay automatically.
-  void (async () => {
-    const fresh = viewManager!.replaceView(sessionId);
-    if (!fresh) return;
-    ipcRouter.subscribe(fresh.webContents);
-    const entry = rendererEntry('terminal');
-    const meta = tabMeta.get(sessionId);
-    await viewManager!.load(sessionId, {
-      ...(entry.url ? { url: entry.url } : {}),
-      ...(entry.file ? { file: entry.file } : {}),
-      query: {
-        sessionId,
-        shell: meta?.shell ?? defaultShell(),
-        cwd: meta?.cwd ?? homedir(),
-      },
-    });
-    viewManager!.show(sessionId);
-  })();
+  void recreateSessionView(sessionId);
 }
 
 app.whenReady().then(async () => {

@@ -13,6 +13,8 @@ export interface SidebarCallbacks {
   /** Opens the rename modal; the LayoutManager owns the dialog + IPC. */
   onRename: (sessionId: SessionId) => void;
   onDuplicate: (sessionId: SessionId) => void;
+  /** Restart an exited tab (fresh shell) or a crashed tab (fresh renderer). */
+  onRestart: (sessionId: SessionId) => void;
   onClose: (sessionId: SessionId) => void;
 }
 
@@ -97,6 +99,7 @@ export class Sidebar {
     };
     mk('Rename', () => this.callbacks.onRename(sessionId));
     mk('Duplicate', () => this.callbacks.onDuplicate(sessionId));
+    mk('Restart', () => this.callbacks.onRestart(sessionId));
     mk('Close', () => this.callbacks.onClose(sessionId));
     document.body.appendChild(menu);
     const close = (): void => {

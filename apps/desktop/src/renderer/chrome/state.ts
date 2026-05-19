@@ -3,6 +3,8 @@ import type { SessionId, SessionInfo } from '@aipad/contracts';
 export interface SessionState {
   info: SessionInfo;
   attention: boolean;
+  /** True when the tab's renderer crashed twice in 60s and stopped auto-recovering. */
+  broken: boolean;
   /** Epoch ms when this session entered its current status. */
   statusSinceMs: number;
 }

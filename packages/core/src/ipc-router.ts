@@ -7,6 +7,7 @@ import {
   SessionResizePayloadSchema,
   SessionClosePayloadSchema,
   SessionSetTitlePayloadSchema,
+  SessionRestartViewPayloadSchema,
   SessionReplayPayloadSchema,
   LayoutShowPayloadSchema,
   LayoutSetSidebarWidthPayloadSchema,
@@ -39,6 +40,8 @@ export type SessionCreateForPaneCallback = (
 ) => SessionInfo;
 export type LayoutModalCallback = (open: boolean) => void;
 export type ReorderTabsCallback = (order: SessionId[]) => void;
+export type SessionCloseCallback = (sessionId: SessionId) => void;
+export type RestartViewCallback = (sessionId: SessionId) => void;
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
@@ -48,6 +51,8 @@ export class IpcRouter {
   private sessionCreateForPaneCallback: SessionCreateForPaneCallback | null = null;
   private layoutModalCallback: LayoutModalCallback | null = null;
   private reorderTabsCallback: ReorderTabsCallback | null = null;
+  private sessionCloseCallback: SessionCloseCallback | null = null;
+  private restartViewCallback: RestartViewCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -80,6 +85,16 @@ export class IpcRouter {
 
   onReorderTabs(cb: ReorderTabsCallback): void {
     this.reorderTabsCallback = cb;
+  }
+
+  /** When set, core.session.close delegates to this instead of manager.close — lets
+   * main run full tab teardown (view destroy, tabMeta + pane cleanup). */
+  onSessionClose(cb: SessionCloseCallback): void {
+    this.sessionCloseCallback = cb;
+  }
+
+  onRestartView(cb: RestartViewCallback): void {
+    this.restartViewCallback = cb;
   }
 
   subscribe(wc: WebContents): void {
@@ -135,7 +150,15 @@ export class IpcRouter {
     this.ipcMain.handle(IpcChannel.SessionClose, (_e, raw): { ok: true } | { error: string } => {
       const parsed = SessionClosePayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
-      this.manager.close(parsed.data.sessionId);
+      if (this.sessionCloseCallback) this.sessionCloseCallback(parsed.data.sessionId);
+      else this.manager.close(parsed.data.sessionId);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.SessionRestartView, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = SessionRestartViewPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.restartViewCallback?.(parsed.data.sessionId);
       return { ok: true };
     });
 
