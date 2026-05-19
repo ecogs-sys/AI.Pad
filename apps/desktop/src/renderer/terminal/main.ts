@@ -1,14 +1,27 @@
-import { TerminalHost } from '@aipad/terminal-host';
-import type { SessionId } from '@aipad/contracts';
+import type { PreloadBridge } from '@aipad/terminal-host';
+import type { SessionId, Shell } from '@aipad/contracts';
+import { SplitContainer } from './split-container.js';
 
 const container = document.getElementById('term-root');
 if (!container) throw new Error('#term-root not found in terminal-host.html');
 
-const bridge = (window as unknown as { aipad: import('@aipad/terminal-host').PreloadBridge }).aipad;
+const bridge = (window as unknown as { aipad: PreloadBridge }).aipad;
 
-// Main passes the session id via the page URL query string (no IPC handshake needed).
-const sessionId = new URLSearchParams(window.location.search).get('sessionId') as SessionId | null;
+const params = new URLSearchParams(window.location.search);
+const sessionId = params.get('sessionId') as SessionId | null;
+const shell = (params.get('shell') ?? 'pwsh') as Shell;
+const cwd = params.get('cwd') ?? '~';
 if (!sessionId) throw new Error('terminal-host.html opened without ?sessionId=...');
 
-new TerminalHost({ container, sessionId, bridge });
-console.info('[terminal] bound to session', sessionId);
+const splits = new SplitContainer({
+  rootEl: container,
+  bridge,
+  initialSessionId: sessionId,
+  shell,
+  cwd,
+});
+
+// Expose for keyboard / split shortcuts.
+(window as unknown as { __aipadSplits: SplitContainer }).__aipadSplits = splits;
+
+console.info('[terminal] split container mounted; primary session', sessionId);

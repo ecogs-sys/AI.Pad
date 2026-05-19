@@ -66,10 +66,15 @@ async function createSessionView(sessionId: string): Promise<void> {
   viewManager.create(sessionId);
   ipcRouter.subscribe(viewManager.get(sessionId)!.webContents);
   const entry = rendererEntry('terminal');
+  const meta = tabMeta.get(sessionId);
   await viewManager.load(sessionId, {
     ...(entry.url ? { url: entry.url } : {}),
     ...(entry.file ? { file: entry.file } : {}),
-    query: { sessionId },
+    query: {
+      sessionId,
+      shell: meta?.shell ?? defaultShell(),
+      cwd: meta?.cwd ?? homedir(),
+    },
   });
   viewManager.show(sessionId);
 }
@@ -189,10 +194,15 @@ function handleRendererCrash(sessionId: string): void {
     if (!fresh) return;
     ipcRouter.subscribe(fresh.webContents);
     const entry = rendererEntry('terminal');
+    const meta = tabMeta.get(sessionId);
     await viewManager!.load(sessionId, {
       ...(entry.url ? { url: entry.url } : {}),
       ...(entry.file ? { file: entry.file } : {}),
-      query: { sessionId },
+      query: {
+        sessionId,
+        shell: meta?.shell ?? defaultShell(),
+        cwd: meta?.cwd ?? homedir(),
+      },
     });
     viewManager!.show(sessionId);
   })();
