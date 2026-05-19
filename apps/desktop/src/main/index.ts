@@ -53,6 +53,14 @@ function preloadPath(): string {
   return join(__dirname, '../preload/index.mjs');
 }
 
+function iconPath(): string {
+  // In dev, __dirname is apps/desktop/out/main; back two levels reaches apps/desktop/build/icon.png.
+  // When packaged, electron-builder copies the icon to resources/icon.png via extraResources.
+  return app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(__dirname, '../../build/icon.png');
+}
+
 function rendererEntry(name: 'chrome' | 'terminal'): { url?: string; file?: string } {
   if (isDev) {
     const port = process.env['ELECTRON_RENDERER_URL'];
@@ -143,6 +151,7 @@ async function createChromeWindow(): Promise<void> {
     width: 1280,
     height: 800,
     backgroundColor: '#1e1e1e',
+    icon: iconPath(),
     webPreferences: {
       preload: preloadPath(),
       sandbox: false,
