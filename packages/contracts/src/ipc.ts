@@ -27,6 +27,7 @@ export const IpcChannel = {
   LayoutSetSidebarWidth: 'core.layout.set-sidebar-width',
   LayoutModal: 'core.layout.modal',
   LayoutReorderTabs: 'core.layout.reorder-tabs',
+  LayoutDefaultCwd: 'core.layout.default-cwd',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',

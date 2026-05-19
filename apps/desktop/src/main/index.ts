@@ -122,6 +122,9 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0]): 
   return session.info();
 }
 
+// IPC: renderer asks for the platform home directory (the chrome cannot read it).
+ipcMain.handle(IpcChannel.LayoutDefaultCwd, (): string => homedir());
+
 // IPC: renderer asks main to spawn the platform default shell at $HOME.
 ipcMain.handle(IpcChannel.SessionCreateDefault, async (): Promise<SessionInfo | { error: string }> => {
   try {
