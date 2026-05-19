@@ -27,6 +27,9 @@ const manager = new LayoutManager({
     callbacks: {
       onRowClick: (id) => manager.focus(id),
       onToggle: () => manager.toggleSidebar(),
+      onRename: (id, title) => manager.renameTab(id, title),
+      onDuplicate: (id) => void manager.duplicateTab(id),
+      onClose: (id) => void manager.closeTab(id),
     },
   }),
 });
