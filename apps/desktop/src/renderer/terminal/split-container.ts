@@ -115,19 +115,25 @@ export class SplitContainer {
   }
 
   private wireDivider(branch: BranchNode, divider: HTMLElement): void {
-    let dragging = false;
-    divider.addEventListener('mousedown', () => { dragging = true; });
-    document.addEventListener('mouseup', () => { dragging = false; });
-    document.addEventListener('mousemove', (ev) => {
-      if (!dragging) return;
-      const rect = branch.el.getBoundingClientRect();
-      const ratio = branch.orientation === 'horizontal'
-        ? (ev.clientX - rect.left) / rect.width
-        : (ev.clientY - rect.top) / rect.height;
-      const clamped = Math.max(0.1, Math.min(0.9, ratio));
-      branch.ratio = clamped;
-      branch.a.el.style.flex = `1 1 ${clamped * 100}%`;
-      branch.b.el.style.flex = `1 1 ${(1 - clamped) * 100}%`;
+    // Document-level move/up listeners exist only for the duration of a drag, so they
+    // do not accumulate as more dividers are created.
+    divider.addEventListener('mousedown', () => {
+      const onMove = (ev: MouseEvent): void => {
+        const rect = branch.el.getBoundingClientRect();
+        const ratio = branch.orientation === 'horizontal'
+          ? (ev.clientX - rect.left) / rect.width
+          : (ev.clientY - rect.top) / rect.height;
+        const clamped = Math.max(0.1, Math.min(0.9, ratio));
+        branch.ratio = clamped;
+        branch.a.el.style.flex = `1 1 ${clamped * 100}%`;
+        branch.b.el.style.flex = `1 1 ${(1 - clamped) * 100}%`;
+      };
+      const onUp = (): void => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
   }
 
