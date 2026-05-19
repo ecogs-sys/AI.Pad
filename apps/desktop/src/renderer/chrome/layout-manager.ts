@@ -20,6 +20,8 @@ export class LayoutManager {
   private readonly bodyEl: HTMLElement;
   private readonly state: ChromeState = emptyState();
   private tickHandle: ReturnType<typeof setInterval> | null = null;
+  /** Platform home directory, fetched from main at startup (the chrome cannot read it). */
+  private homeCwd = '~';
 
   constructor(deps: LayoutDeps) {
     this.bridge = deps.bridge;
@@ -82,6 +84,14 @@ export class LayoutManager {
       this.render();
     });
 
+    // Fetch the real home directory so the New Session dialog never defaults to a
+    // literal '~' (which node-pty cannot spawn into on Windows).
+    try {
+      this.homeCwd = (await this.bridge.send(IpcChannel.LayoutDefaultCwd)) as string;
+    } catch {
+      /* keep the '~' fallback */
+    }
+
     // Pull initial session list (main may have already spawned the boot session).
     const list = (await this.bridge.send(IpcChannel.SessionList)) as SessionInfo[];
     for (const info of list) {
@@ -136,12 +146,12 @@ export class LayoutManager {
   }
 
   private platformDefaultCwd(): string {
-    // Chrome renderer can't read $HOME directly; fall back to the last-used cwd from state,
-    // otherwise '~' which the platform shell will expand.
+    // Prefer the most recent session's cwd; otherwise the real home directory fetched
+    // from main at startup.
     for (const session of this.state.sessions.values()) {
       if (session.info.cwd) return session.info.cwd;
     }
-    return '~';
+    return this.homeCwd;
   }
 
   async closeTab(sessionId: SessionId): Promise<void> {
