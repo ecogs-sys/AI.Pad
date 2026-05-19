@@ -29,18 +29,6 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@aipad/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@aipad/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@aipad/keymap':
-        specifier: workspace:*
-        version: link:../../packages/keymap
-      '@aipad/terminal-host':
-        specifier: workspace:*
-        version: link:../../packages/terminal-host
       '@xterm/addon-fit':
         specifier: ^0.10.0
         version: 0.10.0(@xterm/xterm@5.5.0)
@@ -57,6 +45,18 @@ importers:
         specifier: ^1.0.0
         version: 1.1.0
     devDependencies:
+      '@aipad/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aipad/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@aipad/keymap':
+        specifier: workspace:*
+        version: link:../../packages/keymap
+      '@aipad/terminal-host':
+        specifier: workspace:*
+        version: link:../../packages/terminal-host
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.41
