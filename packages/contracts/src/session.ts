@@ -14,6 +14,11 @@ export type SessionStatus = z.infer<typeof SessionStatusSchema>;
 export const ShellSchema = z.enum(['pwsh', 'powershell', 'cmd', 'bash', 'zsh', 'wsl']);
 export type Shell = z.infer<typeof ShellSchema>;
 
+/** Whether a session backs a top-level tab or a pane inside a split tab. The chrome
+ * renderer only renders tabs; pane sessions are owned by a tab's terminal renderer. */
+export const SessionKindSchema = z.enum(['tab', 'pane']);
+export type SessionKind = z.infer<typeof SessionKindSchema>;
+
 export const SessionCreateOptionsSchema = z.object({
   shell: ShellSchema,
   cwd: z.string().min(1),
@@ -30,6 +35,7 @@ export const SessionInfoSchema = z.object({
   shell: ShellSchema,
   cwd: z.string(),
   status: SessionStatusSchema,
+  kind: SessionKindSchema,
   pid: z.number().int().nullable(),
   exitCode: z.number().int().nullable(),
 });

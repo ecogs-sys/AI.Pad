@@ -82,7 +82,8 @@ export class IpcRouter {
       if (!parsed.success) return { error: parsed.error.message };
       try {
         // Note: NO view creation — this session lives as a pane inside the calling renderer.
-        return this.manager.create(parsed.data).info();
+        // kind='pane' so the chrome's SessionCreated handler ignores it (no phantom tab).
+        return this.manager.create(parsed.data, 'pane').info();
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };
       }

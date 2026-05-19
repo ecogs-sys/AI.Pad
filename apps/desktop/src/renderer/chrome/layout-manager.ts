@@ -35,6 +35,8 @@ export class LayoutManager {
     // is safe.
     this.bridge.on(IpcChannel.SessionCreated, (raw) => {
       const e = raw as { info: SessionInfo };
+      // Pane sessions live inside a tab's terminal renderer — they are never tabs.
+      if (e.info.kind === 'pane') return;
       this.upsertSession(e.info);
       this.focus(e.info.id);
     });
@@ -66,7 +68,10 @@ export class LayoutManager {
 
     // Pull initial session list (main may have already spawned the boot session).
     const list = (await this.bridge.send(IpcChannel.SessionList)) as SessionInfo[];
-    for (const info of list) this.upsertSession(info);
+    for (const info of list) {
+      if (info.kind === 'pane') continue;
+      this.upsertSession(info);
+    }
     if (!this.state.focusedId && this.state.tabOrder[0]) this.focus(this.state.tabOrder[0]);
 
     // Tick sidebar time-in-state once per second.

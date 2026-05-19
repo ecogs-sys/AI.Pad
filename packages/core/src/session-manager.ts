@@ -5,6 +5,7 @@ import type {
   SessionCreateOptions,
   SessionId,
   SessionInfo,
+  SessionKind,
 } from '@aipad/contracts';
 import { Session } from './session.js';
 
@@ -24,9 +25,9 @@ export interface SessionManagerEvents {
 export class SessionManager extends EventEmitter {
   private readonly sessions = new Map<SessionId, Session>();
 
-  create(opts: SessionCreateOptions): Session {
+  create(opts: SessionCreateOptions, kind: SessionKind = 'tab'): Session {
     const id: SessionId = randomUUID();
-    const session = new Session(id, opts);
+    const session = new Session(id, opts, kind);
     this.sessions.set(id, session);
 
     session.on('data', (chunk) => this.emit('sessionData', id, chunk));
