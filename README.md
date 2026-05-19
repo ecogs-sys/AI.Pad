@@ -10,7 +10,7 @@ This repository is in active development.
 |---|---|---|
 | Stage 1 | Plan 1 — Foundations | complete |
 | Stage 1 | Plan 2 — Multi-tab + attention | complete |
-| Stage 1 | Plan 3 — Splits + persistence + packaging | not started |
+| Stage 1 | Plan 3 — Splits + persistence + packaging | complete |
 | Stage 2 | Overview tab | not started |
 
 ## Quick start (development)
@@ -25,6 +25,16 @@ pnpm dev         # launches the Electron app via electron-vite
 ```
 
 A native window should appear with one PowerShell session inside it.
+
+## Installation (pre-built)
+
+Pre-built installers for Windows / macOS / Linux are published as GitHub Releases on every tag push.
+
+- **Windows:** `AI.Pad Setup x.y.z.exe` — NSIS installer.
+- **macOS:** `AI.Pad-x.y.z.dmg` — drag to Applications.
+- **Linux:** `AI.Pad-x.y.z.AppImage` — `chmod +x` and run.
+
+The app auto-updates from GitHub Releases on next launch.
 
 ## Verify your install (Plan 1 manual smoke)
 
@@ -59,8 +69,20 @@ pnpm test:e2e    # 1 Playwright smoke that boots the built app and checks the ch
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
 | `Ctrl+1` … `Ctrl+9` | Jump to tab 1–9 |
 | `Ctrl+B` | Toggle sidebar |
+| `Ctrl+\` | Split focused pane horizontally |
+| `Ctrl+Shift+\` | Split focused pane vertically |
 
 When a background tab needs your input (e.g., an agent prompts you), the tab badges with a yellow dot and a desktop notification fires (unless that tab is already focused). Clicking the notification focuses the window and switches to that tab.
+
+## Persistence
+
+Open tabs persist across restarts. Each tab remembers its shell, cwd, and title; PTYs respawn fresh on relaunch (conversation history inside agents like `claude` is not preserved).
+
+The persisted state lives in your platform's userData directory:
+
+- Windows: `%APPDATA%\AI.Pad\sessions.json`
+- macOS: `~/Library/Application Support/AI.Pad/sessions.json`
+- Linux: `~/.config/AI.Pad/sessions.json`
 
 ## Layout
 
