@@ -93,7 +93,9 @@ function rendererEntry(name: 'chrome' | 'terminal'): { url?: string; file?: stri
 async function createSessionView(sessionId: string): Promise<void> {
   if (!viewManager) return;
   viewManager.create(sessionId);
-  ipcRouter.subscribe(viewManager.get(sessionId)!.webContents);
+  const wc = viewManager.get(sessionId)!.webContents;
+  ipcRouter.subscribe(wc);
+  ipcRouter.bindSessionView(sessionId, wc);
   const entry = rendererEntry('terminal');
   const meta = tabMeta.get(sessionId);
   await viewManager.load(sessionId, {
@@ -185,9 +187,12 @@ ipcRouter.onSetSidebarWidth((widthPx) => {
 ipcRouter.onSessionCreate((opts) => createTabSession(opts));
 
 // Pane creation: spawn a pane session and record which tab owns it (no view).
+// The pane's data is routed to the owning tab's WebContents.
 ipcRouter.onSessionCreateForPane((opts, tabId) => {
   const session = sessionManager.create(opts, 'pane');
   paneOwnership.set(session.id, tabId);
+  const wc = viewManager?.get(tabId)?.webContents;
+  if (wc) ipcRouter.bindSessionView(session.id, wc);
   return session.info();
 });
 
@@ -288,6 +293,11 @@ async function recreateSessionView(sessionId: string): Promise<void> {
   const fresh = viewManager.replaceView(sessionId);
   if (!fresh) return;
   ipcRouter.subscribe(fresh.webContents);
+  // Rebind the tab and all its panes to the new WebContents.
+  ipcRouter.bindSessionView(sessionId, fresh.webContents);
+  for (const [paneId, owner] of paneOwnership) {
+    if (owner === sessionId) ipcRouter.bindSessionView(paneId, fresh.webContents);
+  }
   const entry = rendererEntry('terminal');
   const meta = tabMeta.get(sessionId);
   await viewManager.load(sessionId, {

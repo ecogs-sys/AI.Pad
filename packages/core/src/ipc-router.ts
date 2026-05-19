@@ -45,6 +45,9 @@ export type RestartViewCallback = (sessionId: SessionId) => void;
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
+  /** sessionId -> the WebContents that hosts it. High-volume session-data events are
+   * sent only to the owning view instead of broadcast to every renderer. */
+  private readonly sessionViews = new Map<SessionId, WebContents>();
   private layoutShowCallback: LayoutShowCallback | null = null;
   private setSidebarWidthCallback: SetSidebarWidthCallback | null = null;
   private sessionCreateCallback: SessionCreateCallback | null = null;
@@ -99,7 +102,18 @@ export class IpcRouter {
 
   subscribe(wc: WebContents): void {
     this.subscribers.add(wc);
-    wc.once('destroyed', () => this.subscribers.delete(wc));
+    wc.once('destroyed', () => {
+      this.subscribers.delete(wc);
+      for (const [sessionId, viewWc] of this.sessionViews) {
+        if (viewWc === wc) this.sessionViews.delete(sessionId);
+      }
+    });
+  }
+
+  /** Register which WebContents hosts a session, so its data events are routed there
+   * directly. Panes share their owning tab's WebContents. */
+  bindSessionView(sessionId: SessionId, wc: WebContents): void {
+    this.sessionViews.set(sessionId, wc);
   }
 
   private bindRequests(): void {
@@ -222,10 +236,15 @@ export class IpcRouter {
     });
 
     this.manager.on('sessionData', (sessionId: SessionId, chunk: Buffer) => {
-      this.broadcast(IpcChannel.SessionData, {
-        sessionId,
-        data: chunk.toString('base64'),
-      });
+      const payload = { sessionId, data: chunk.toString('base64') };
+      const wc = this.sessionViews.get(sessionId);
+      if (wc) {
+        // Route to the owning view only — avoids O(N^2) fan-out across all views.
+        if (!wc.isDestroyed()) wc.send(IpcChannel.SessionData, payload);
+      } else {
+        // No mapping yet (early race) — fall back to broadcast so data is never lost.
+        this.broadcast(IpcChannel.SessionData, payload);
+      }
     });
 
     this.manager.on('sessionExited', (sessionId, exitCode, signal) => {
