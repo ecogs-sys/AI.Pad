@@ -16,10 +16,10 @@ export const AppSettingsSchema = z.object({
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
-export const DEFAULT_APP_SETTINGS: AppSettings = {
-  autoResume: {
+export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
+  autoResume: Object.freeze({
     enabled: true,
     detectText: "You've hit your limit",
     responseText: 'continue',
-  },
-};
+  }),
+});
