@@ -215,8 +215,10 @@ contract blast radius small.
 ### Countdown badge
 
 - On `event.resume.scheduled` for a session, the `TabStrip` tab and the `Sidebar`
-  row for that session show a small badge — e.g. `⏳ 9:30pm` — with a `✕` control
-  that sends `core.resume.cancel`.
+  row for that session show a small badge — e.g. `⏳ 9:30pm`. The **tab** badge is
+  display-only (tab bars are narrow); the **sidebar** badge carries a `✕` control
+  that sends `core.resume.cancel`. The sidebar is the roomier, primary surface for
+  cancelling a pending resume.
 - The badge is cleared on `event.resume.cancelled`, `event.resume.fired`, or
   session exit.
 - Styled consistently with the existing attention badges; chrome state is held in
