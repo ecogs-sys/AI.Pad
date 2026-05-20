@@ -28,6 +28,9 @@ export const IpcChannel = {
   LayoutModal: 'core.layout.modal',
   LayoutReorderTabs: 'core.layout.reorder-tabs',
   LayoutDefaultCwd: 'core.layout.default-cwd',
+  SettingsGet: 'core.settings.get',
+  SettingsUpdate: 'core.settings.update',
+  ResumeCancel: 'core.resume.cancel',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -38,6 +41,10 @@ export const IpcChannel = {
   SessionTabBroken: 'event.session.tab-broken',
   ActionInvoke: 'event.action.invoke',
   TerminalAction: 'event.terminal.action',
+  SettingsChanged: 'event.settings.changed',
+  ResumeScheduled: 'event.resume.scheduled',
+  ResumeCancelled: 'event.resume.cancelled',
+  ResumeFired: 'event.resume.fired',
 } as const;
 
 // --- Request payloads ---
@@ -142,6 +149,25 @@ export const ActionInvokePayloadSchema = z.object({
 
 export const TerminalActionPayloadSchema = z.object({
   action: z.enum(['splitHorizontal', 'splitVertical', 'closePane']),
+});
+
+// --- Settings + resume payloads ---
+
+export const ResumeCancelPayloadSchema = z.object({
+  sessionId: SessionIdSchema,
+});
+
+export const ResumeScheduledEventSchema = z.object({
+  sessionId: SessionIdSchema,
+  resetAt: z.number().int(),
+});
+
+export const ResumeCancelledEventSchema = z.object({
+  sessionId: SessionIdSchema,
+});
+
+export const ResumeFiredEventSchema = z.object({
+  sessionId: SessionIdSchema,
 });
 
 // Re-export for caller convenience.

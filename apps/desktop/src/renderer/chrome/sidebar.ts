@@ -1,10 +1,13 @@
 import type { SessionId, SessionInfo } from '@aipad/contracts';
+import { formatClock } from './tab-strip.js';
 
 export interface SidebarRowVm {
   info: SessionInfo;
   attention: boolean;
   /** Time the session entered its current status, in epoch ms. */
   statusSinceMs: number;
+  /** Epoch ms a pending auto-resume will fire, or null when none is scheduled. */
+  resumeAt: number | null;
 }
 
 export interface SidebarCallbacks {
@@ -16,6 +19,8 @@ export interface SidebarCallbacks {
   /** Restart an exited tab (fresh shell) or a crashed tab (fresh renderer). */
   onRestart: (sessionId: SessionId) => void;
   onClose: (sessionId: SessionId) => void;
+  /** Cancel a pending auto-resume for the session. */
+  onResumeCancel: (sessionId: SessionId) => void;
 }
 
 const SHELL_ICONS: Record<string, string> = {
@@ -73,6 +78,24 @@ export class Sidebar {
       content.appendChild(meta);
 
       el.appendChild(content);
+
+      if (row.resumeAt !== null) {
+        const badge = document.createElement('span');
+        badge.className = 'resume-badge';
+        badge.title = 'Auto-resume scheduled';
+        badge.appendChild(document.createTextNode(`⏳ ${formatClock(row.resumeAt)}`));
+        const cancel = document.createElement('span');
+        cancel.className = 'resume-cancel';
+        cancel.textContent = '×';
+        cancel.title = 'Cancel auto-resume';
+        cancel.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          this.callbacks.onResumeCancel(row.info.id);
+        });
+        badge.appendChild(cancel);
+        el.appendChild(badge);
+      }
+
       el.addEventListener('click', () => this.callbacks.onRowClick(row.info.id));
       el.addEventListener('contextmenu', (ev) => {
         ev.preventDefault();
