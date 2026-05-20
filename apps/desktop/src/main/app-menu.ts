@@ -44,6 +44,8 @@ export function buildAppMenu(
   ];
 
   const viewSubmenu: MenuItemConstructorOptions[] = [
+    { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: () => send('openSettings', chromeWindow) },
+    { type: 'separator' },
     { label: 'Toggle Sidebar', accelerator: Bindings.toggleSidebar.accelerator, click: () => send('toggleSidebar', chromeWindow) },
     { type: 'separator' },
     { role: 'reload' },
