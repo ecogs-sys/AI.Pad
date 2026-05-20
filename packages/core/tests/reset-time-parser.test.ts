@@ -43,6 +43,23 @@ describe('parseResetTime', () => {
     expect(new Date(ms!).getHours()).toBe(11);
   });
 
+  it('handles a reset time across a DST spring-forward boundary', () => {
+    // 2026-03-08: America/New_York springs forward (02:00 -> 03:00 EST->EDT).
+    // 'now' is 23:30 on 2026-03-08 (already EDT); reset '9:30am' must roll to
+    // the next day and resolve to a valid 09:30 wall-clock instant in that zone.
+    const now = DateTime.fromObject(
+      { year: 2026, month: 3, day: 8, hour: 23, minute: 30 },
+      { zone: 'America/New_York' },
+    ).toJSDate();
+    const ms = parseResetTime('resets 9:30am (America/New_York)', now);
+    expect(ms).not.toBeNull();
+    const dt = DateTime.fromMillis(ms!, { zone: 'America/New_York' });
+    expect(dt.day).toBe(9);
+    expect(dt.hour).toBe(9);
+    expect(dt.minute).toBe(30);
+    expect(ms!).toBeGreaterThan(now.getTime());
+  });
+
   it('falls back to local time when the timezone is unknown', () => {
     const now = new Date(2026, 4, 20, 1, 0, 0);
     const ms = parseResetTime('resets 3pm (Not/AZone)', now);
