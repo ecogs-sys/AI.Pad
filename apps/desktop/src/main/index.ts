@@ -2,11 +2,13 @@ import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
-import { IpcChannel, IpcRouter, SessionManager } from '@aipad/core';
+import { IpcChannel, IpcRouter, SessionManager, SessionStore } from '@aipad/core';
 import type { Shell, SessionInfo } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu } from './app-menu.js';
+import { bootstrapSessions } from './session-bootstrap.js';
+import { setupAutoUpdate } from './auto-update.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +21,44 @@ if (!app.requestSingleInstanceLock()) {
 
 const sessionManager = new SessionManager();
 const ipcRouter = new IpcRouter(ipcMain, sessionManager);
+const sessionStore = new SessionStore(app.getPath('userData'));
+const tabMeta = new Map<string, { tabId: string; shell: Shell; cwd: string; title?: string }>();
+/** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
+let tabOrder: string[] = [];
+/** pane session id -> owning tab's primary session id. */
+const paneOwnership = new Map<string, string>();
+
+/** Close every pane session owned by the given tab. */
+function closeTabPanes(tabId: string): void {
+  for (const [paneId, owner] of paneOwnership) {
+    if (owner === tabId) {
+      sessionManager.close(paneId);
+      paneOwnership.delete(paneId);
+    }
+  }
+}
+
+function snapshotTabs(): {
+  version: 1;
+  tabs: Array<{ tabId: string; shell: Shell; cwd: string; title?: string }>;
+  focusedTabId: string | null;
+} {
+  return {
+    version: 1,
+    // Emit tabs in the authoritative order so a drag-reorder survives restart.
+    tabs: tabOrder.filter((id) => tabMeta.has(id)).map((id) => tabMeta.get(id)!),
+    focusedTabId: focusedSessionId,
+  };
+}
+
+function persistTabs(): void {
+  void sessionStore.save(snapshotTabs());
+}
+
+// Surface persistence failures instead of swallowing them (F19).
+sessionStore.onError((err) => {
+  console.warn('[main] layout not saved:', err instanceof Error ? err.message : err);
+});
 
 let chromeWindow: BrowserWindow | null = null;
 let viewManager: ViewManager | null = null;
@@ -33,6 +73,14 @@ function preloadPath(): string {
   return join(__dirname, '../preload/index.mjs');
 }
 
+function iconPath(): string {
+  // In dev, __dirname is apps/desktop/out/main; back two levels reaches apps/desktop/build/icon.png.
+  // When packaged, electron-builder copies the icon to resources/icon.png via extraResources.
+  return app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(__dirname, '../../build/icon.png');
+}
+
 function rendererEntry(name: 'chrome' | 'terminal'): { url?: string; file?: string } {
   if (isDev) {
     const port = process.env['ELECTRON_RENDERER_URL'];
@@ -42,45 +90,88 @@ function rendererEntry(name: 'chrome' | 'terminal'): { url?: string; file?: stri
   return { file: join(__dirname, `../renderer/${name === 'chrome' ? 'index' : 'terminal-host'}.html`) };
 }
 
+async function createSessionView(sessionId: string): Promise<void> {
+  if (!viewManager) return;
+  viewManager.create(sessionId);
+  const wc = viewManager.get(sessionId)!.webContents;
+  ipcRouter.subscribe(wc);
+  ipcRouter.bindSessionView(sessionId, wc);
+  const entry = rendererEntry('terminal');
+  const meta = tabMeta.get(sessionId);
+  await viewManager.load(sessionId, {
+    ...(entry.url ? { url: entry.url } : {}),
+    ...(entry.file ? { file: entry.file } : {}),
+    query: {
+      sessionId,
+      shell: meta?.shell ?? defaultShell(),
+      cwd: meta?.cwd ?? homedir(),
+    },
+  });
+  viewManager.show(sessionId);
+}
+
+async function createTabSession(opts: Parameters<SessionManager['create']>[0]): Promise<SessionInfo> {
+  const session = sessionManager.create(opts);
+  tabMeta.set(session.id, {
+    tabId: session.id,
+    shell: opts.shell,
+    cwd: opts.cwd,
+    ...(opts.title ? { title: opts.title } : {}),
+  });
+  tabOrder.push(session.id);
+  persistTabs();
+  await createSessionView(session.id);
+  return session.info();
+}
+
+// IPC: renderer asks for the platform home directory (the chrome cannot read it).
+ipcMain.handle(IpcChannel.LayoutDefaultCwd, (): string => homedir());
+
 // IPC: renderer asks main to spawn the platform default shell at $HOME.
-ipcMain.handle(IpcChannel.SessionCreateDefault, (): SessionInfo | { error: string } => {
+ipcMain.handle(IpcChannel.SessionCreateDefault, async (): Promise<SessionInfo | { error: string }> => {
   try {
-    const session = sessionManager.create({
+    return await createTabSession({
       shell: defaultShell(),
       cwd: homedir(),
       cols: 80,
       rows: 24,
     });
-    return session.info();
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
 });
 
-// Every newly created session (from any path — initial spawn, renderer request, etc.) gets
-// a fresh WebContentsView + replay-aware terminal page.
-sessionManager.on('sessionCreated', async (info) => {
-  if (!viewManager) return;
-  viewManager.create(info.id);
-  ipcRouter.subscribe(viewManager.get(info.id)!.webContents);
-  const entry = rendererEntry('terminal');
-  await viewManager.load(info.id, {
-    ...(entry.url ? { url: entry.url } : {}),
-    ...(entry.file ? { file: entry.file } : {}),
-    query: { sessionId: info.id },
-  });
-  // Make the newly created session the visible one. The renderer's LayoutManager will
-  // confirm by sending its own LayoutShow message, but we show here so there's never a
-  // moment where no view is visible.
-  viewManager.show(info.id);
+sessionManager.on('sessionExited', (sessionId) => {
+  crashCounters.delete(sessionId);
+  // Spec §7: a tab whose shell exits on its own becomes a read-only 'exited' tab —
+  // the WebContentsView is kept so scrollback stays readable and the user can
+  // Restart or Close it. Teardown happens only via an explicit core.session.close.
+  if (!tabMeta.has(sessionId)) {
+    paneOwnership.delete(sessionId);
+  }
 });
 
-sessionManager.on('sessionExited', (sessionId) => {
-  // Destroy the WebContentsView when the session exits. Plan 2's UX treats tab close
-  // as "kill the shell AND lose the scrollback" — matches Windows Terminal, VS Code, etc.
-  // Plan 3 may revisit if a "preserve exited tab" mode is wanted.
-  viewManager?.destroy(sessionId);
-  crashCounters.delete(sessionId);
+/** Full teardown of a tab: destroy its view, its panes, persist, then kill the PTY.
+ * Invoked only on an explicit user close (core.session.close). */
+function closeTab(tabId: string): void {
+  closeTabPanes(tabId);
+  viewManager?.destroy(tabId);
+  crashCounters.delete(tabId);
+  if (tabMeta.has(tabId)) {
+    tabMeta.delete(tabId);
+    tabOrder = tabOrder.filter((id) => id !== tabId);
+    persistTabs();
+  }
+  sessionManager.close(tabId);
+}
+
+// Persist tab renames: when a session's title changes, update tabMeta and re-save.
+sessionManager.on('sessionTitleChanged', (sessionId, title) => {
+  const meta = tabMeta.get(sessionId);
+  if (meta) {
+    meta.title = title;
+    persistTabs();
+  }
 });
 
 let focusedSessionId: string | null = null;
@@ -93,11 +184,61 @@ ipcRouter.onSetSidebarWidth((widthPx) => {
   viewManager?.setSidebarWidth(widthPx);
 });
 
+ipcRouter.onSessionCreate((opts) => createTabSession(opts));
+
+// Pane creation: spawn a pane session and record which tab owns it (no view).
+// The pane's data is routed to the owning tab's WebContents.
+ipcRouter.onSessionCreateForPane((opts, tabId) => {
+  const session = sessionManager.create(opts, 'pane');
+  paneOwnership.set(session.id, tabId);
+  const wc = viewManager?.get(tabId)?.webContents;
+  if (wc) ipcRouter.bindSessionView(session.id, wc);
+  return session.info();
+});
+
+// While a chrome-level modal (NewSessionDialog, rename) is open, move the terminal
+// WebContentsView offscreen so the native overlay does not cover the modal.
+ipcRouter.onLayoutModal((open) => {
+  if (open) viewManager?.suspend();
+  else viewManager?.resume();
+});
+
+// Persist drag-reordered tab order (ignoring ids that are no longer tabs).
+ipcRouter.onReorderTabs((order) => {
+  const known = order.filter((id) => tabMeta.has(id));
+  // Keep any tabs the renderer did not mention (defensive) at the end.
+  for (const id of tabOrder) if (!known.includes(id) && tabMeta.has(id)) known.push(id);
+  tabOrder = known;
+  persistTabs();
+});
+
+// Explicit user close → full tab teardown.
+ipcRouter.onSessionClose((sessionId) => closeTab(sessionId));
+
+// Restart a broken tab's renderer (PTY is still alive — recreate just the view).
+ipcRouter.onRestartView((sessionId) => {
+  crashCounters.delete(sessionId);
+  void recreateSessionView(sessionId);
+});
+
+// Construct the NotificationBridge exactly once, at module scope, before any session
+// exists. It reads chromeWindow/viewManager/focusedSessionId via lazy getters, so it
+// survives window recreation on macOS without re-registering its sessionAttention
+// listener (which previously leaked + duplicated notifications on every reopen).
+new NotificationBridge({
+  sessionManager,
+  viewManager: () => viewManager,
+  chromeWindow: () => chromeWindow,
+  focusedSessionId: () => focusedSessionId,
+  tabIdForSession: (id) => (paneOwnership.get(id) ?? id),
+});
+
 async function createChromeWindow(): Promise<void> {
   chromeWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     backgroundColor: '#1e1e1e',
+    icon: iconPath(),
     webPreferences: {
       preload: preloadPath(),
       sandbox: false,
@@ -110,7 +251,10 @@ async function createChromeWindow(): Promise<void> {
     onCrash: (sessionId) => handleRendererCrash(sessionId),
   });
   viewManager.attach(chromeWindow);
-  Menu.setApplicationMenu(buildAppMenu(() => chromeWindow));
+  Menu.setApplicationMenu(buildAppMenu(
+    () => chromeWindow,
+    () => focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null,
+  ));
 
   await (() => {
     const entry = rendererEntry('chrome');
@@ -119,29 +263,55 @@ async function createChromeWindow(): Promise<void> {
   })();
   ipcRouter.subscribe(chromeWindow.webContents);
 
-  // Create the initial session so the app boots with something visible. The sessionCreated
-  // listener above takes care of the matching view.
-  sessionManager.create({
-    shell: defaultShell(),
-    cwd: homedir(),
-    cols: 80,
-    rows: 24,
+  // Create the initial session so the app boots with something visible.
+  const restoredFocus = await bootstrapSessions({
+    loadPersisted: () => sessionStore.load(),
+    createTabSession: (opts) => createTabSession(opts),
+    defaultShell,
+    defaultCwd: () => homedir(),
   });
+  if (restoredFocus) {
+    focusedSessionId = restoredFocus;
+    viewManager?.show(restoredFocus);
+    chromeWindow?.webContents.send(IpcChannel.LayoutShow, { sessionId: restoredFocus });
+  }
 
   chromeWindow.on('closed', () => {
     chromeWindow = null;
     viewManager = null;
   });
 
-  const _bridge = new NotificationBridge({
-    sessionManager,
-    viewManager: () => viewManager,
-    chromeWindow: () => chromeWindow,
-    focusedSessionId: () => focusedSessionId,
-  });
+  void setupAutoUpdate();
 }
 
 const crashCounters = new Map<string, number[]>(); // sessionId → recent crash timestamps
+
+/** Replace a tab's WebContentsView with a fresh one. The PTY session is untouched;
+ * TerminalHost.replay() reloads scrollback from the ring buffer. */
+async function recreateSessionView(sessionId: string): Promise<void> {
+  if (!viewManager) return;
+  const fresh = viewManager.replaceView(sessionId);
+  if (!fresh) return;
+  ipcRouter.subscribe(fresh.webContents);
+  // Rebind the tab and all its panes to the new WebContents.
+  ipcRouter.bindSessionView(sessionId, fresh.webContents);
+  for (const [paneId, owner] of paneOwnership) {
+    if (owner === sessionId) ipcRouter.bindSessionView(paneId, fresh.webContents);
+  }
+  const entry = rendererEntry('terminal');
+  const meta = tabMeta.get(sessionId);
+  await viewManager.load(sessionId, {
+    ...(entry.url ? { url: entry.url } : {}),
+    ...(entry.file ? { file: entry.file } : {}),
+    query: {
+      sessionId,
+      shell: meta?.shell ?? defaultShell(),
+      cwd: meta?.cwd ?? homedir(),
+    },
+  });
+  viewManager.show(sessionId);
+}
+
 function handleRendererCrash(sessionId: string): void {
   if (!viewManager) return;
   const now = Date.now();
@@ -149,24 +319,13 @@ function handleRendererCrash(sessionId: string): void {
   recent.push(now);
   crashCounters.set(sessionId, recent);
   if (recent.length >= 2) {
-    console.warn(`[main] tab ${sessionId} crashed twice in 60s; not auto-recovering.`);
+    // Spec §7: two crashes in 60s → stop auto-recovering, surface a broken state.
+    console.warn(`[main] tab ${sessionId} crashed twice in 60s; surfacing "needs restart".`);
+    chromeWindow?.webContents.send(IpcChannel.SessionTabBroken, { sessionId });
     return;
   }
   console.warn(`[main] tab ${sessionId} crashed; recreating view + replaying scrollback.`);
-  // Replacing the view re-loads the terminal page; replay() inside the new TerminalHost
-  // pulls the ring buffer snapshot via core.session.replay automatically.
-  void (async () => {
-    const fresh = viewManager!.replaceView(sessionId);
-    if (!fresh) return;
-    ipcRouter.subscribe(fresh.webContents);
-    const entry = rendererEntry('terminal');
-    await viewManager!.load(sessionId, {
-      ...(entry.url ? { url: entry.url } : {}),
-      ...(entry.file ? { file: entry.file } : {}),
-      query: { sessionId },
-    });
-    viewManager!.show(sessionId);
-  })();
+  void recreateSessionView(sessionId);
 }
 
 app.whenReady().then(async () => {

@@ -10,6 +10,12 @@ export interface SidebarRowVm {
 export interface SidebarCallbacks {
   onRowClick: (sessionId: SessionId) => void;
   onToggle: () => void;
+  /** Opens the rename modal; the LayoutManager owns the dialog + IPC. */
+  onRename: (sessionId: SessionId) => void;
+  onDuplicate: (sessionId: SessionId) => void;
+  /** Restart an exited tab (fresh shell) or a crashed tab (fresh renderer). */
+  onRestart: (sessionId: SessionId) => void;
+  onClose: (sessionId: SessionId) => void;
 }
 
 const SHELL_ICONS: Record<string, string> = {
@@ -68,8 +74,49 @@ export class Sidebar {
 
       el.appendChild(content);
       el.addEventListener('click', () => this.callbacks.onRowClick(row.info.id));
+      el.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault();
+        this.showContextMenu(ev.clientX, ev.clientY, row.info.id);
+      });
       this.listEl.appendChild(el);
     }
+  }
+
+  private showContextMenu(x: number, y: number, sessionId: SessionId): void {
+    const existing = document.getElementById('sidebar-context-menu');
+    existing?.remove();
+    const menu = document.createElement('div');
+    menu.id = 'sidebar-context-menu';
+    menu.style.cssText = `position: fixed; top: ${y}px; left: ${x}px; background: #2d2d2d; color: #d4d4d4; border: 1px solid #333; border-radius: 4px; padding: 4px 0; z-index: 200; font-size: 12px; min-width: 140px; box-shadow: 0 4px 14px rgba(0,0,0,0.4);`;
+    const mk = (label: string, fn: () => void) => {
+      const item = document.createElement('div');
+      item.textContent = label;
+      item.style.cssText = 'padding: 6px 14px; cursor: pointer;';
+      item.addEventListener('mouseover', () => { item.style.background = '#094771'; });
+      item.addEventListener('mouseout', () => { item.style.background = 'transparent'; });
+      item.addEventListener('click', () => { menu.remove(); fn(); });
+      menu.appendChild(item);
+    };
+    mk('Rename', () => this.callbacks.onRename(sessionId));
+    mk('Duplicate', () => this.callbacks.onDuplicate(sessionId));
+    mk('Restart', () => this.callbacks.onRestart(sessionId));
+    mk('Close', () => this.callbacks.onClose(sessionId));
+    document.body.appendChild(menu);
+    const close = (): void => {
+      menu.remove();
+      document.removeEventListener('mousedown', dismiss);
+      document.removeEventListener('keydown', onKey);
+    };
+    const dismiss = (ev: MouseEvent): void => {
+      if (!menu.contains(ev.target as Node)) close();
+    };
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') close();
+    };
+    setTimeout(() => {
+      document.addEventListener('mousedown', dismiss);
+      document.addEventListener('keydown', onKey);
+    }, 0);
   }
 }
 

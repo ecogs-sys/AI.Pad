@@ -1,9 +1,10 @@
-import type { SessionId, SessionInfo, AttentionEvent } from '@aipad/contracts';
+import type { SessionId, SessionInfo, AttentionEvent, Shell } from '@aipad/contracts';
 import { IpcChannel } from '@aipad/contracts';
 import type { PreloadBridge } from '@aipad/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
 import { Sidebar, type SidebarRowVm } from './sidebar.js';
 import { emptyState, type ChromeState, type SessionState } from './state.js';
+import { showNewSessionDialog, showRenameDialog } from './new-session-dialog.js';
 
 export interface LayoutDeps {
   bridge: PreloadBridge;
@@ -19,6 +20,8 @@ export class LayoutManager {
   private readonly bodyEl: HTMLElement;
   private readonly state: ChromeState = emptyState();
   private tickHandle: ReturnType<typeof setInterval> | null = null;
+  /** Platform home directory, fetched from main at startup (the chrome cannot read it). */
+  private homeCwd = '~';
 
   constructor(deps: LayoutDeps) {
     this.bridge = deps.bridge;
@@ -34,6 +37,8 @@ export class LayoutManager {
     // is safe.
     this.bridge.on(IpcChannel.SessionCreated, (raw) => {
       const e = raw as { info: SessionInfo };
+      // Pane sessions live inside a tab's terminal renderer — they are never tabs.
+      if (e.info.kind === 'pane') return;
       this.upsertSession(e.info);
       this.focus(e.info.id);
     });
@@ -62,10 +67,37 @@ export class LayoutManager {
       const e = raw as { sessionId: SessionId };
       if (this.state.sessions.has(e.sessionId)) this.focus(e.sessionId);
     });
+    // Title changes (rename) are echoed by main — keep tab/sidebar labels in sync.
+    this.bridge.on(IpcChannel.SessionTitleChanged, (raw) => {
+      const e = raw as { sessionId: SessionId; title: string };
+      const session = this.state.sessions.get(e.sessionId);
+      if (!session) return;
+      session.info = { ...session.info, title: e.title };
+      this.render();
+    });
+    // A tab whose renderer crashed twice in 60s — mark it broken so the UI offers Restart.
+    this.bridge.on(IpcChannel.SessionTabBroken, (raw) => {
+      const e = raw as { sessionId: SessionId };
+      const session = this.state.sessions.get(e.sessionId);
+      if (!session) return;
+      session.broken = true;
+      this.render();
+    });
+
+    // Fetch the real home directory so the New Session dialog never defaults to a
+    // literal '~' (which node-pty cannot spawn into on Windows).
+    try {
+      this.homeCwd = (await this.bridge.send(IpcChannel.LayoutDefaultCwd)) as string;
+    } catch {
+      /* keep the '~' fallback */
+    }
 
     // Pull initial session list (main may have already spawned the boot session).
     const list = (await this.bridge.send(IpcChannel.SessionList)) as SessionInfo[];
-    for (const info of list) this.upsertSession(info);
+    for (const info of list) {
+      if (info.kind === 'pane') continue;
+      this.upsertSession(info);
+    }
     if (!this.state.focusedId && this.state.tabOrder[0]) this.focus(this.state.tabOrder[0]);
 
     // Tick sidebar time-in-state once per second.
@@ -77,14 +109,49 @@ export class LayoutManager {
   // --- Public actions invoked by TabStrip/Sidebar callbacks and keyboard ---
 
   async newTab(): Promise<void> {
-    const info = (await this.bridge.send(IpcChannel.SessionCreateDefault)) as
-      | SessionInfo
-      | { error: string };
+    await this.openNewTabDialog();
+  }
+
+  async openNewTabDialog(): Promise<void> {
+    const mount = document.getElementById('dialog-mount');
+    if (!mount) return;
+    // Suspend the terminal overlay so the modal is visible, restore it afterwards.
+    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    let result: { shell: Shell; cwd: string } | null;
+    try {
+      result = await showNewSessionDialog(mount, {
+        defaultShell: this.platformDefaultShell(),
+        defaultCwd: this.platformDefaultCwd(),
+      });
+    } finally {
+      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+    }
+    if (!result) return;
+    const info = (await this.bridge.send(IpcChannel.SessionCreate, {
+      shell: result.shell,
+      cwd: result.cwd,
+      cols: 80,
+      rows: 24,
+    })) as SessionInfo | { error: string };
     if ('error' in info) {
       console.error('[chrome] new tab failed:', info.error);
-      return;
     }
-    // SessionCreated event will arrive and populate state; nothing else to do.
+  }
+
+  private platformDefaultShell(): Shell {
+    const ua = navigator.userAgent;
+    if (ua.includes('Windows')) return 'pwsh';
+    if (ua.includes('Mac OS')) return 'zsh';
+    return 'bash';
+  }
+
+  private platformDefaultCwd(): string {
+    // Prefer the most recent session's cwd; otherwise the real home directory fetched
+    // from main at startup.
+    for (const session of this.state.sessions.values()) {
+      if (session.info.cwd) return session.info.cwd;
+    }
+    return this.homeCwd;
   }
 
   async closeTab(sessionId: SessionId): Promise<void> {
@@ -98,6 +165,66 @@ export class LayoutManager {
       if (this.state.focusedId) this.bridge.send(IpcChannel.LayoutShow, { sessionId: this.state.focusedId });
     }
     this.render();
+  }
+
+  reorderTab(draggedId: SessionId, beforeId: SessionId | null): void {
+    const dragIdx = this.state.tabOrder.indexOf(draggedId);
+    if (dragIdx < 0) return;
+    const [moved] = this.state.tabOrder.splice(dragIdx, 1);
+    if (!moved) return;
+    if (beforeId === null) {
+      this.state.tabOrder.push(moved);
+    } else {
+      const beforeIdx = this.state.tabOrder.indexOf(beforeId);
+      this.state.tabOrder.splice(beforeIdx, 0, moved);
+    }
+    // Persist the new order so it survives a restart.
+    void this.bridge.send(IpcChannel.LayoutReorderTabs, { order: [...this.state.tabOrder] });
+    this.render();
+  }
+
+  async renameTab(sessionId: SessionId): Promise<void> {
+    const session = this.state.sessions.get(sessionId);
+    if (!session) return;
+    const mount = document.getElementById('dialog-mount');
+    if (!mount) return;
+    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    let newTitle: string | null;
+    try {
+      newTitle = await showRenameDialog(mount, session.info.title);
+    } finally {
+      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+    }
+    if (!newTitle) return;
+    // Main echoes SessionTitleChanged, which updates local state + persists.
+    await this.bridge.send(IpcChannel.SessionSetTitle, { sessionId, title: newTitle });
+  }
+
+  async duplicateTab(sessionId: SessionId): Promise<void> {
+    const session = this.state.sessions.get(sessionId);
+    if (!session) return;
+    const info = (await this.bridge.send(IpcChannel.SessionCreate, {
+      shell: session.info.shell,
+      cwd: session.info.cwd,
+      cols: 80,
+      rows: 24,
+    })) as SessionInfo | { error: string };
+    if ('error' in info) console.error('[chrome] duplicate failed:', info.error);
+  }
+
+  /** Restart a broken tab (recreate its renderer) or an exited tab (fresh shell).
+   * A running tab is left untouched. */
+  async restartTab(sessionId: SessionId): Promise<void> {
+    const session = this.state.sessions.get(sessionId);
+    if (!session) return;
+    if (session.broken) {
+      await this.bridge.send(IpcChannel.SessionRestartView, { sessionId });
+      session.broken = false;
+      this.render();
+    } else if (session.info.status === 'exited') {
+      await this.duplicateTab(sessionId);
+      await this.closeTab(sessionId);
+    }
   }
 
   focus(sessionId: SessionId): void {
@@ -155,6 +282,7 @@ export class LayoutManager {
       const fresh: SessionState = {
         info,
         attention: false,
+        broken: false,
         statusSinceMs: Date.now(),
       };
       this.state.sessions.set(info.id, fresh);
@@ -167,7 +295,7 @@ export class LayoutManager {
     const tabs: TabViewModel[] = this.state.tabOrder
       .map((id) => this.state.sessions.get(id))
       .filter((s): s is SessionState => !!s)
-      .map((s) => ({ info: s.info, attention: s.attention }));
+      .map((s) => ({ info: s.info, attention: s.attention, broken: s.broken }));
     this.tabStrip.render(tabs, this.state.focusedId);
 
     const rows: SidebarRowVm[] = this.state.tabOrder

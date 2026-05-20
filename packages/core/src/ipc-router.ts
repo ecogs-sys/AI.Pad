@@ -2,15 +2,21 @@ import type { IpcMain, WebContents } from 'electron';
 import {
   IpcChannel,
   SessionCreateOptionsSchema,
+  SessionCreateForPanePayloadSchema,
   SessionWritePayloadSchema,
   SessionResizePayloadSchema,
   SessionClosePayloadSchema,
+  SessionSetTitlePayloadSchema,
+  SessionRestartViewPayloadSchema,
   SessionReplayPayloadSchema,
   LayoutShowPayloadSchema,
   LayoutSetSidebarWidthPayloadSchema,
+  LayoutModalPayloadSchema,
+  LayoutReorderTabsPayloadSchema,
 } from '@aipad/contracts';
 import type {
   AttentionEvent,
+  SessionCreateOptions,
   SessionId,
   SessionInfo,
   SessionReplayResponse,
@@ -27,11 +33,29 @@ import type { SessionManager } from './session-manager.js';
  */
 export type LayoutShowCallback = (sessionId: SessionId) => void;
 export type SetSidebarWidthCallback = (widthPx: number) => void;
+export type SessionCreateCallback = (opts: SessionCreateOptions) => Promise<SessionInfo>;
+export type SessionCreateForPaneCallback = (
+  opts: SessionCreateOptions,
+  tabId: SessionId,
+) => SessionInfo;
+export type LayoutModalCallback = (open: boolean) => void;
+export type ReorderTabsCallback = (order: SessionId[]) => void;
+export type SessionCloseCallback = (sessionId: SessionId) => void;
+export type RestartViewCallback = (sessionId: SessionId) => void;
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
+  /** sessionId -> the WebContents that hosts it. High-volume session-data events are
+   * sent only to the owning view instead of broadcast to every renderer. */
+  private readonly sessionViews = new Map<SessionId, WebContents>();
   private layoutShowCallback: LayoutShowCallback | null = null;
   private setSidebarWidthCallback: SetSidebarWidthCallback | null = null;
+  private sessionCreateCallback: SessionCreateCallback | null = null;
+  private sessionCreateForPaneCallback: SessionCreateForPaneCallback | null = null;
+  private layoutModalCallback: LayoutModalCallback | null = null;
+  private reorderTabsCallback: ReorderTabsCallback | null = null;
+  private sessionCloseCallback: SessionCloseCallback | null = null;
+  private restartViewCallback: RestartViewCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -50,17 +74,73 @@ export class IpcRouter {
     this.setSidebarWidthCallback = cb;
   }
 
+  onSessionCreate(cb: SessionCreateCallback): void {
+    this.sessionCreateCallback = cb;
+  }
+
+  onSessionCreateForPane(cb: SessionCreateForPaneCallback): void {
+    this.sessionCreateForPaneCallback = cb;
+  }
+
+  onLayoutModal(cb: LayoutModalCallback): void {
+    this.layoutModalCallback = cb;
+  }
+
+  onReorderTabs(cb: ReorderTabsCallback): void {
+    this.reorderTabsCallback = cb;
+  }
+
+  /** When set, core.session.close delegates to this instead of manager.close — lets
+   * main run full tab teardown (view destroy, tabMeta + pane cleanup). */
+  onSessionClose(cb: SessionCloseCallback): void {
+    this.sessionCloseCallback = cb;
+  }
+
+  onRestartView(cb: RestartViewCallback): void {
+    this.restartViewCallback = cb;
+  }
+
   subscribe(wc: WebContents): void {
     this.subscribers.add(wc);
-    wc.once('destroyed', () => this.subscribers.delete(wc));
+    wc.once('destroyed', () => {
+      this.subscribers.delete(wc);
+      for (const [sessionId, viewWc] of this.sessionViews) {
+        if (viewWc === wc) this.sessionViews.delete(sessionId);
+      }
+    });
+  }
+
+  /** Register which WebContents hosts a session, so its data events are routed there
+   * directly. Panes share their owning tab's WebContents. */
+  bindSessionView(sessionId: SessionId, wc: WebContents): void {
+    this.sessionViews.set(sessionId, wc);
   }
 
   private bindRequests(): void {
-    this.ipcMain.handle(IpcChannel.SessionCreate, (_e, raw): SessionInfo | { error: string } => {
+    this.ipcMain.handle(IpcChannel.SessionCreate, async (_e, raw): Promise<SessionInfo | { error: string }> => {
       const parsed = SessionCreateOptionsSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
       try {
+        if (this.sessionCreateCallback) {
+          return await this.sessionCreateCallback(parsed.data);
+        }
         return this.manager.create(parsed.data).info();
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    });
+
+    this.ipcMain.handle(IpcChannel.SessionCreateForPane, (_e, raw): SessionInfo | { error: string } => {
+      const parsed = SessionCreateForPanePayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      try {
+        // Note: NO view creation — this session lives as a pane inside the calling renderer.
+        // kind='pane' so the chrome's SessionCreated handler ignores it (no phantom tab).
+        const { tabId, ...opts } = parsed.data;
+        if (this.sessionCreateForPaneCallback) {
+          return this.sessionCreateForPaneCallback(opts, tabId);
+        }
+        return this.manager.create(opts, 'pane').info();
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };
       }
@@ -84,7 +164,24 @@ export class IpcRouter {
     this.ipcMain.handle(IpcChannel.SessionClose, (_e, raw): { ok: true } | { error: string } => {
       const parsed = SessionClosePayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
-      this.manager.close(parsed.data.sessionId);
+      if (this.sessionCloseCallback) this.sessionCloseCallback(parsed.data.sessionId);
+      else this.manager.close(parsed.data.sessionId);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.SessionRestartView, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = SessionRestartViewPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.restartViewCallback?.(parsed.data.sessionId);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.SessionSetTitle, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = SessionSetTitlePayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      // setTitle emits titleChanged -> broadcast as SessionTitleChanged; main also
+      // listens to persist the new title into tabMeta.
+      this.manager.get(parsed.data.sessionId)?.setTitle(parsed.data.title);
       return { ok: true };
     });
 
@@ -117,6 +214,20 @@ export class IpcRouter {
       this.setSidebarWidthCallback?.(parsed.data.widthPx);
       return { ok: true };
     });
+
+    this.ipcMain.handle(IpcChannel.LayoutModal, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutModalPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.layoutModalCallback?.(parsed.data.open);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.LayoutReorderTabs, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutReorderTabsPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.reorderTabsCallback?.(parsed.data.order);
+      return { ok: true };
+    });
   }
 
   private bindEvents(): void {
@@ -125,10 +236,15 @@ export class IpcRouter {
     });
 
     this.manager.on('sessionData', (sessionId: SessionId, chunk: Buffer) => {
-      this.broadcast(IpcChannel.SessionData, {
-        sessionId,
-        data: chunk.toString('base64'),
-      });
+      const payload = { sessionId, data: chunk.toString('base64') };
+      const wc = this.sessionViews.get(sessionId);
+      if (wc) {
+        // Route to the owning view only — avoids O(N^2) fan-out across all views.
+        if (!wc.isDestroyed()) wc.send(IpcChannel.SessionData, payload);
+      } else {
+        // No mapping yet (early race) — fall back to broadcast so data is never lost.
+        this.broadcast(IpcChannel.SessionData, payload);
+      }
     });
 
     this.manager.on('sessionExited', (sessionId, exitCode, signal) => {

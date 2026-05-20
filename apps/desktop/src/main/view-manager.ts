@@ -112,6 +112,19 @@ export class ViewManager {
     if (view) this.applyVisibleBounds(view);
   }
 
+  /** Move the visible view offscreen so a chrome-level modal is not obscured by the
+   * native overlay. `currentSessionId` is preserved so `resume()` restores it. */
+  suspend(): void {
+    if (!this.currentSessionId) return;
+    const view = this.views.get(this.currentSessionId);
+    if (view) this.hideOne(view);
+  }
+
+  /** Restore the previously-visible view after a modal closes. */
+  resume(): void {
+    this.layout();
+  }
+
   /** Replace the underlying WebContentsView for a session (used during crash recovery). */
   replaceView(sessionId: SessionId): WebContentsView | null {
     const old = this.views.get(sessionId);
