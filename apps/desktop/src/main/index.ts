@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@aipad/core';
 import type { Shell, SessionInfo, AppSettings } from '@aipad/contracts';
-import { AppSettingsSchema } from '@aipad/contracts';
+import { AppSettingsSchema, ResumeCancelPayloadSchema } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu } from './app-menu.js';
@@ -149,10 +149,9 @@ ipcMain.handle(IpcChannel.SettingsUpdate, (_e, raw): { ok: true } | { error: str
 
 // IPC: chrome renderer cancels a pending resume (badge cancel control).
 ipcMain.handle(IpcChannel.ResumeCancel, (_e, raw): { ok: true } | { error: string } => {
-  if (typeof raw !== 'object' || raw === null || typeof (raw as { sessionId?: unknown }).sessionId !== 'string') {
-    return { error: 'invalid resume-cancel payload' };
-  }
-  sessionManager.cancelResume((raw as { sessionId: string }).sessionId);
+  const parsed = ResumeCancelPayloadSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.message };
+  sessionManager.cancelResume(parsed.data.sessionId);
   return { ok: true };
 });
 
