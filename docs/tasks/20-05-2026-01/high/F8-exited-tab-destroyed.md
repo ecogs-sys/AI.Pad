@@ -1,7 +1,7 @@
 # F8 — Exited tab is destroyed; spec requires a read-only exited state
 
 **Severity:** High
-**Status:** Open
+**Status:** Fixed (commit `fix(F8,F9)`)
 
 ## Files
 - `apps/desktop/src/main/index.ts:118-135` (`sessionExited` listener)

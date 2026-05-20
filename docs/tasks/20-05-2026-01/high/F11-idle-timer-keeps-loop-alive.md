@@ -1,7 +1,7 @@
 # F11 — AttentionDetector idle timer keeps the event loop alive
 
 **Severity:** High
-**Status:** Open
+**Status:** Fixed (commit `fix(F11)`)
 
 ## Files
 - `packages/core/src/attention-detector.ts:73-74`

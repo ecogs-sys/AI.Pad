@@ -1,7 +1,7 @@
 # F27 — SessionStore writeChain silently resets on error
 
 **Severity:** Low
-**Status:** Open
+**Status:** Fixed (commit `fix(F19,F27)`)
 
 ## Files
 - `packages/core/src/session-store.ts:45-48`

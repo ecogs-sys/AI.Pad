@@ -1,7 +1,7 @@
 # F9 — Renderer-crash "Tab needs restart" state not surfaced
 
 **Severity:** High
-**Status:** Open
+**Status:** Fixed (commit `fix(F8,F9)`)
 
 ## Files
 - `apps/desktop/src/main/index.ts:207-238` (`handleRendererCrash`)

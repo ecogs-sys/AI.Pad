@@ -1,7 +1,7 @@
 # F23 — IPC event fan-out sends every session's data to every view
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F23)`)
 
 ## Files
 - `packages/core/src/ipc-router.ts:144-174` (`broadcast`)

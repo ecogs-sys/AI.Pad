@@ -1,7 +1,7 @@
 # F18 — CI does not build the desktop app on Windows/macOS
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F18)`)
 
 ## Files
 - `.github/workflows/ci.yml`

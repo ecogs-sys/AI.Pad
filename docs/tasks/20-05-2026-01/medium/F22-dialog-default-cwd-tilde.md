@@ -1,7 +1,7 @@
 # F22 — NewSessionDialog default cwd '~' breaks on Windows
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F22)`)
 
 ## Files
 - `apps/desktop/src/renderer/chrome/layout-manager.ts:110-117`

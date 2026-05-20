@@ -1,7 +1,7 @@
 # F28 — SplitContainer divider drag listeners accumulate
 
 **Severity:** Low
-**Status:** Open
+**Status:** Fixed (commit `fix(F28)`)
 
 ## Files
 - `apps/desktop/src/renderer/terminal/split-container.ts:112-127` (`wireDivider`)

@@ -1,7 +1,7 @@
 # F3 — Orphan-pane safety net kills all pane sessions when any tab closes
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Fixed (commit `fix(F3)`)
 
 ## Files
 - `apps/desktop/src/main/index.ts:118-135`

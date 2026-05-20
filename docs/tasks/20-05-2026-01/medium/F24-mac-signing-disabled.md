@@ -1,7 +1,7 @@
 # F24 — electron-builder permanently disables macOS signing
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F15,F24)`)
 
 ## Files
 - `apps/desktop/electron-builder.json`

@@ -1,7 +1,7 @@
 # F21 — NotificationBridge does not truncate the title
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F4,F7,F14,F21)`)
 
 ## Files
 - `apps/desktop/src/main/notification-bridge.ts:30-36`

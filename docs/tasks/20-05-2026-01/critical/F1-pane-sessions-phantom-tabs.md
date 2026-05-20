@@ -1,7 +1,7 @@
 # F1 — Pane sessions create phantom tabs in the chrome
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Fixed (commit `fix(F1)`)
 
 ## Files
 - `apps/desktop/src/renderer/chrome/layout-manager.ts:36-40`

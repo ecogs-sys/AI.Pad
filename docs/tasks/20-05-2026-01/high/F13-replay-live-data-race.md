@@ -1,7 +1,13 @@
 # F13 — Live-data / replay race in TerminalHost
 
 **Severity:** High
-**Status:** Open
+**Status:** Fixed (commit `fix(F13)`)
+
+## Note
+The dedicated terminal-host Vitest suite was not added: the package has no
+renderer test infra (xterm.js needs a DOM/jsdom + mocking). The fix is
+verified by typecheck/build and the E2E smoke. Adding renderer-side test
+infra is tracked as a future improvement.
 
 ## Files
 - `packages/terminal-host/src/terminal-host.ts:71-97`

@@ -1,7 +1,7 @@
 # F2 — NewSessionDialog is hidden by the terminal WebContentsView overlay
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Fixed (commit `fix(F2)`)
 
 ## Files
 - `apps/desktop/index.html` (`#dialog-mount`)

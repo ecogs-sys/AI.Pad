@@ -1,7 +1,13 @@
 # F10 — Panes have no close UI, no Ctrl+W, no exit handling
 
 **Severity:** High
-**Status:** Open
+**Status:** Fixed (commit `fix(F10,F26)`)
+
+## Note
+Close-pane is bound to `Ctrl+Shift+W` (a clean, dedicated accelerator) rather
+than overloading `Ctrl+W`, which would require a renderer round-trip to decide
+tab-vs-pane. An exited pane stays visible (read-only) and is closed with the
+same shortcut — consistent with the exited-tab behaviour from F8.
 
 ## Files
 - `apps/desktop/src/renderer/terminal/split-container.ts`

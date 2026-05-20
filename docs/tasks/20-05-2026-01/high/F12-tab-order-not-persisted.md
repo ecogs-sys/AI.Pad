@@ -1,7 +1,7 @@
 # F12 — Tab reorder is not persisted across restarts
 
 **Severity:** High
-**Status:** Open
+**Status:** Fixed (commit `fix(F12)`)
 
 ## Files
 - `packages/contracts/src/persistence.ts`
