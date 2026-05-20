@@ -139,10 +139,11 @@ export class LayoutManager {
   async openSettings(): Promise<void> {
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
-    const current = (await this.bridge.send(IpcChannel.SettingsGet)) as AppSettings;
+    // Suspend the terminal overlay before any async work so the modal is never obscured.
     void this.bridge.send(IpcChannel.LayoutModal, { open: true });
     let result: AppSettings | null;
     try {
+      const current = (await this.bridge.send(IpcChannel.SettingsGet)) as AppSettings;
       result = await showSettingsDialog(mount, current);
     } finally {
       void this.bridge.send(IpcChannel.LayoutModal, { open: false });
