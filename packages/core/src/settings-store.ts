@@ -29,8 +29,10 @@ export class SettingsStore {
     try {
       raw = await fs.readFile(path, 'utf8');
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return DEFAULT_APP_SETTINGS;
-      throw err;
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.warn('[SettingsStore] could not read settings, using defaults:', err);
+      }
+      return DEFAULT_APP_SETTINGS;
     }
     let parsed: unknown;
     try {
