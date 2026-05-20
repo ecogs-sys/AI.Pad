@@ -1,12 +1,20 @@
 import { _electron as electron, expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/** Launch args with an isolated, empty userData dir so persisted tabs cannot leak in. */
+function launchArgs(): string[] {
+  const userData = mkdtempSync(join(tmpdir(), 'aipad-e2e-'));
+  return [resolve(__dirname, '../../apps/desktop'), `--user-data-dir=${userData}`];
+}
+
 test('opening a 2nd tab and triggering BEL badges the inactive tab', async () => {
   const electronApp = await electron.launch({
-    args: [resolve(__dirname, '../../apps/desktop')],
+    args: launchArgs(),
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const chrome = await electronApp.firstWindow();

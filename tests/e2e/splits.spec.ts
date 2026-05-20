@@ -1,8 +1,17 @@
 import { _electron as electron, expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** Launch args with an isolated, empty userData dir so persisted tabs from a previous
+ * run (or another spec) cannot leak in. */
+function launchArgs(): string[] {
+  const userData = mkdtempSync(join(tmpdir(), 'aipad-e2e-'));
+  return [resolve(__dirname, '../../apps/desktop'), `--user-data-dir=${userData}`];
+}
 
 /** Query the total session count (tabs + panes) via the chrome IPC bridge. */
 async function sessionCount(chrome: import('@playwright/test').Page): Promise<number> {
@@ -17,7 +26,7 @@ async function sessionCount(chrome: import('@playwright/test').Page): Promise<nu
 
 test('split menu action creates a new pane session', async () => {
   const electronApp = await electron.launch({
-    args: [resolve(__dirname, '../../apps/desktop')],
+    args: launchArgs(),
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const chrome = await electronApp.firstWindow();
@@ -26,13 +35,19 @@ test('split menu action creates a new pane session', async () => {
   // One tab session at boot, no panes yet.
   await expect.poll(() => sessionCount(chrome), { timeout: 8_000 }).toBe(1);
 
+  // Give the terminal view's renderer time to mount its SplitContainer and register
+  // the TerminalAction listener before the menu action is dispatched to it.
+  await chrome.waitForTimeout(2_500);
+
   // Trigger the split via the application menu (electronApp.evaluate runs in main).
-  await electronApp.evaluate(({ Menu }) => {
-    const menu = Menu.getApplicationMenu();
-    const tabs = menu?.items.find((m) => m.label === 'Tabs');
-    const split = tabs?.submenu?.items.find((m) => m.label === 'Split Horizontally');
-    split?.click();
-  });
+  const triggerSplit = (): Promise<void> =>
+    electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const tabs = menu?.items.find((m) => m.label === 'Tabs');
+      const split = tabs?.submenu?.items.find((m) => m.label === 'Split Horizontally');
+      split?.click();
+    });
+  await triggerSplit();
 
   // The split spawns one pane session — total becomes 2 — and the tab count is unchanged
   // (panes are not tabs).
