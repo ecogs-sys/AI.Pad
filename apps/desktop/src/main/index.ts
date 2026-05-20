@@ -2,8 +2,9 @@ import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
-import { IpcChannel, IpcRouter, SessionManager, SessionStore } from '@aipad/core';
-import type { Shell, SessionInfo } from '@aipad/contracts';
+import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@aipad/core';
+import type { Shell, SessionInfo, AppSettings } from '@aipad/contracts';
+import { AppSettingsSchema } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu } from './app-menu.js';
@@ -22,6 +23,11 @@ if (!app.requestSingleInstanceLock()) {
 const sessionManager = new SessionManager();
 const ipcRouter = new IpcRouter(ipcMain, sessionManager);
 const sessionStore = new SessionStore(app.getPath('userData'));
+const settingsStore = new SettingsStore(app.getPath('userData'));
+settingsStore.onError((err) => {
+  console.warn('[main] settings not saved:', err instanceof Error ? err.message : err);
+});
+let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '' } };
 const tabMeta = new Map<string, { tabId: string; shell: Shell; cwd: string; title?: string }>();
 /** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
 let tabOrder: string[] = [];
@@ -126,6 +132,40 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0]): 
 
 // IPC: renderer asks for the platform home directory (the chrome cannot read it).
 ipcMain.handle(IpcChannel.LayoutDefaultCwd, (): string => homedir());
+
+// IPC: chrome renderer reads the current settings.
+ipcMain.handle(IpcChannel.SettingsGet, (): AppSettings => appSettings);
+
+// IPC: chrome renderer saves settings — persist, apply, and echo to renderers.
+ipcMain.handle(IpcChannel.SettingsUpdate, (_e, raw): { ok: true } | { error: string } => {
+  const parsed = AppSettingsSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.message };
+  appSettings = parsed.data;
+  void settingsStore.save(appSettings);
+  sessionManager.applyAutoResumeConfig(appSettings.autoResume);
+  chromeWindow?.webContents.send(IpcChannel.SettingsChanged, appSettings);
+  return { ok: true };
+});
+
+// IPC: chrome renderer cancels a pending resume (badge cancel control).
+ipcMain.handle(IpcChannel.ResumeCancel, (_e, raw): { ok: true } | { error: string } => {
+  if (typeof raw !== 'object' || raw === null || typeof (raw as { sessionId?: unknown }).sessionId !== 'string') {
+    return { error: 'invalid resume-cancel payload' };
+  }
+  sessionManager.cancelResume((raw as { sessionId: string }).sessionId);
+  return { ok: true };
+});
+
+// Forward resume lifecycle events to the chrome renderer for the countdown badge.
+sessionManager.on('resumeScheduled', (sessionId, resetAt) => {
+  chromeWindow?.webContents.send(IpcChannel.ResumeScheduled, { sessionId, resetAt });
+});
+sessionManager.on('resumeCancelled', (sessionId) => {
+  chromeWindow?.webContents.send(IpcChannel.ResumeCancelled, { sessionId });
+});
+sessionManager.on('resumeFired', (sessionId) => {
+  chromeWindow?.webContents.send(IpcChannel.ResumeFired, { sessionId });
+});
 
 // IPC: renderer asks main to spawn the platform default shell at $HOME.
 ipcMain.handle(IpcChannel.SessionCreateDefault, async (): Promise<SessionInfo | { error: string }> => {
@@ -262,6 +302,10 @@ async function createChromeWindow(): Promise<void> {
     return chromeWindow!.webContents.loadFile(entry.file!);
   })();
   ipcRouter.subscribe(chromeWindow.webContents);
+
+  // Load persisted settings and apply them before any session is created.
+  appSettings = await settingsStore.load();
+  sessionManager.applyAutoResumeConfig(appSettings.autoResume);
 
   // Create the initial session so the app boots with something visible.
   const restoredFocus = await bootstrapSessions({
