@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "@aipad/contracts": "workspace:*",
+    "luxon": "^3.5.0",
     "node-pty": "^1.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/luxon": "^3.4.2",
     "@types/node": "^20.14.0",
     "@vitest/coverage-v8": "^2.1.0",
     "electron": "^33.0.0",

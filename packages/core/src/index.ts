@@ -15,3 +15,9 @@ export type {
 } from './notification-service.js';
 export { IpcChannel } from '@aipad/contracts';
 export { SessionStore } from './session-store.js';
+export { SettingsStore } from './settings-store.js';
+export { RateLimitDetector } from './rate-limit-detector.js';
+export type { RateLimitDetectorEvents } from './rate-limit-detector.js';
+export { ResumeScheduler } from './resume-scheduler.js';
+export type { ResumeSchedulerOptions } from './resume-scheduler.js';
+export { parseResetTime } from './reset-time-parser.js';

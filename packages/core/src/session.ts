@@ -9,6 +9,7 @@ import type {
   SessionStatus,
 } from '@aipad/contracts';
 import { AttentionDetector } from './attention-detector.js';
+import { RateLimitDetector } from './rate-limit-detector.js';
 import { RingBuffer } from './ring-buffer.js';
 
 export interface SessionEvents {
@@ -16,6 +17,7 @@ export interface SessionEvents {
   exit: (info: { exitCode: number | null; signal: string | null }) => void;
   titleChanged: (title: string) => void;
   attention: (ev: AttentionEvent) => void;
+  rateLimitDetected: (resetText: string) => void;
 }
 
 const DEFAULT_RING_CAPACITY = 256 * 1024; // ~256 KB ≈ 5,000 lines
@@ -39,6 +41,7 @@ export class Session extends EventEmitter {
   readonly ringBuffer: RingBuffer;
   private readonly pty: pty.IPty;
   private readonly detector = new AttentionDetector();
+  private readonly rateLimitDetector = new RateLimitDetector('');
   private _title: string;
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
@@ -66,11 +69,16 @@ export class Session extends EventEmitter {
       this.emit('attention', { ...ev, sessionId: this.id });
     });
 
+    this.rateLimitDetector.on('rateLimitDetected', (resetText) => {
+      this.emit('rateLimitDetected', resetText);
+    });
+
     this.pty.onData((data: string) => {
       // node-pty delivers a decoded string; re-encode to Buffer for the ring buffer + downstream consumers.
       const buf = Buffer.from(data, 'utf8');
       this.ringBuffer.write(buf);
       this.detector.process(buf);
+      this.rateLimitDetector.process(buf);
       this.emit('data', buf);
     });
 
@@ -79,6 +87,7 @@ export class Session extends EventEmitter {
       this._exitCode = exitCode;
       // The session is done — clear the detector's pending idle timer.
       this.detector.dispose();
+      this.rateLimitDetector.dispose();
       this.emit('exit', { exitCode, signal: signal != null ? String(signal) : null });
     });
   }
@@ -111,6 +120,11 @@ export class Session extends EventEmitter {
     if (this._title === title) return;
     this._title = title;
     this.emit('titleChanged', title);
+  }
+
+  /** Update the rate-limit phrase scanned in this session's output. Empty = off. */
+  setRateLimitDetectText(text: string): void {
+    this.rateLimitDetector.setDetectText(text);
   }
 
   info(): SessionInfo {

@@ -1,0 +1,77 @@
+import { EventEmitter } from 'node:events';
+import { StringDecoder } from 'node:string_decoder';
+
+/** Max characters of decoded output kept for phrase matching. */
+const WINDOW_MAX = 4096;
+/** Characters captured after the matched phrase, so the reset time is included. */
+const TRAILING_CONTEXT = 200;
+
+/** CSI sequences, OSC sequences, and other single escapes — stripped before matching. */
+const ANSI_RE =
+  // eslint-disable-next-line no-control-regex
+  /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]/g;
+
+export interface RateLimitDetectorEvents {
+  rateLimitDetected: (resetText: string) => void;
+}
+
+/**
+ * Scans a session's PTY output for a configured literal phrase. Maintains a small
+ * sliding window of decoded, ANSI-stripped text. Emits `rateLimitDetected` once
+ * each time the phrase newly appears (a false->true transition), so a redrawn TUI
+ * frame that keeps the phrase on screen does not produce a storm of events.
+ */
+export class RateLimitDetector extends EventEmitter {
+  private readonly decoder = new StringDecoder('utf8');
+  private window = '';
+  private detectText: string;
+  private present = false;
+
+  constructor(detectText: string) {
+    super();
+    this.detectText = detectText;
+  }
+
+  /** Update the phrase. Re-arms detection so a phrase already on screen can trigger. */
+  setDetectText(text: string): void {
+    if (text === this.detectText) return;
+    this.detectText = text;
+    this.present = false;
+  }
+
+  process(chunk: Buffer): void {
+    if (chunk.length === 0) return;
+    // StringDecoder keeps multi-byte UTF-8 characters intact across chunk boundaries.
+    this.window = (this.window + this.decoder.write(chunk)).slice(-WINDOW_MAX);
+
+    if (!this.detectText) {
+      this.present = false;
+      return;
+    }
+    const stripped = this.window.replace(ANSI_RE, '');
+    const idx = stripped.indexOf(this.detectText);
+    if (idx === -1) {
+      this.present = false;
+      return;
+    }
+    if (this.present) return;
+    this.present = true;
+    const resetText = stripped.slice(idx, idx + this.detectText.length + TRAILING_CONTEXT);
+    this.emit('rateLimitDetected', resetText);
+  }
+
+  /** Clear state and listeners. Call when the session ends. */
+  dispose(): void {
+    this.window = '';
+    this.present = false;
+    this.removeAllListeners();
+  }
+}
+
+export interface RateLimitDetector {
+  on<K extends keyof RateLimitDetectorEvents>(event: K, listener: RateLimitDetectorEvents[K]): this;
+  emit<K extends keyof RateLimitDetectorEvents>(
+    event: K,
+    ...args: Parameters<RateLimitDetectorEvents[K]>
+  ): boolean;
+}
