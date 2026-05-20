@@ -82,8 +82,8 @@ export class Sidebar {
       if (row.resumeAt !== null) {
         const badge = document.createElement('span');
         badge.className = 'resume-badge';
-        badge.textContent = `⏳ ${formatClock(row.resumeAt)}`;
         badge.title = 'Auto-resume scheduled';
+        badge.appendChild(document.createTextNode(`⏳ ${formatClock(row.resumeAt)}`));
         const cancel = document.createElement('span');
         cancel.className = 'resume-cancel';
         cancel.textContent = '×';
