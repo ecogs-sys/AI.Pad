@@ -152,6 +152,7 @@ export class SessionManager extends EventEmitter {
     );
     await Promise.all(closes);
     this.sessions.clear();
+    this.resumeScheduler.dispose();
   }
 }
 
