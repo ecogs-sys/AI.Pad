@@ -70,6 +70,10 @@ export function wireKeyboard(manager: LayoutManager): void {
 }
 
 export function routeMenuAction(manager: LayoutManager, actionId: string): void {
+  if (actionId === 'openSettings') {
+    void manager.openSettings();
+    return;
+  }
   const handler = ACTION_HANDLERS[actionId as BindingId];
   if (handler) handler(manager);
 }

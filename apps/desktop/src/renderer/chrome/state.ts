@@ -7,6 +7,8 @@ export interface SessionState {
   broken: boolean;
   /** Epoch ms when this session entered its current status. */
   statusSinceMs: number;
+  /** Epoch ms a pending auto-resume will fire, or null when none is scheduled. */
+  resumeAt: number | null;
 }
 
 export interface ChromeState {

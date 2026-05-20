@@ -1,10 +1,11 @@
-import type { SessionId, SessionInfo, AttentionEvent, Shell } from '@aipad/contracts';
+import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings } from '@aipad/contracts';
 import { IpcChannel } from '@aipad/contracts';
 import type { PreloadBridge } from '@aipad/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
 import { Sidebar, type SidebarRowVm } from './sidebar.js';
 import { emptyState, type ChromeState, type SessionState } from './state.js';
 import { showNewSessionDialog, showRenameDialog } from './new-session-dialog.js';
+import { showSettingsDialog } from './settings-dialog.js';
 
 export interface LayoutDeps {
   bridge: PreloadBridge;
@@ -48,6 +49,7 @@ export class LayoutManager {
       if (session) {
         session.info = { ...session.info, status: 'exited', exitCode: e.exitCode };
         session.statusSinceMs = Date.now();
+        session.resumeAt = null;
         this.render();
       }
     });
@@ -83,6 +85,28 @@ export class LayoutManager {
       session.broken = true;
       this.render();
     });
+    // Auto-resume countdown badge: track the scheduled time per session.
+    this.bridge.on(IpcChannel.ResumeScheduled, (raw) => {
+      const e = raw as { sessionId: SessionId; resetAt: number };
+      const session = this.state.sessions.get(e.sessionId);
+      if (!session) return;
+      session.resumeAt = e.resetAt;
+      this.render();
+    });
+    this.bridge.on(IpcChannel.ResumeCancelled, (raw) => {
+      const e = raw as { sessionId: SessionId };
+      const session = this.state.sessions.get(e.sessionId);
+      if (!session) return;
+      session.resumeAt = null;
+      this.render();
+    });
+    this.bridge.on(IpcChannel.ResumeFired, (raw) => {
+      const e = raw as { sessionId: SessionId };
+      const session = this.state.sessions.get(e.sessionId);
+      if (!session) return;
+      session.resumeAt = null;
+      this.render();
+    });
 
     // Fetch the real home directory so the New Session dialog never defaults to a
     // literal '~' (which node-pty cannot spawn into on Windows).
@@ -110,6 +134,31 @@ export class LayoutManager {
 
   async newTab(): Promise<void> {
     await this.openNewTabDialog();
+  }
+
+  async openSettings(): Promise<void> {
+    const mount = document.getElementById('dialog-mount');
+    if (!mount) return;
+    const current = (await this.bridge.send(IpcChannel.SettingsGet)) as AppSettings;
+    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    let result: AppSettings | null;
+    try {
+      result = await showSettingsDialog(mount, current);
+    } finally {
+      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+    }
+    if (!result) return;
+    await this.bridge.send(IpcChannel.SettingsUpdate, result);
+  }
+
+  /** Cancel a pending auto-resume (badge cancel control). */
+  cancelResume(sessionId: SessionId): void {
+    void this.bridge.send(IpcChannel.ResumeCancel, { sessionId });
+    const session = this.state.sessions.get(sessionId);
+    if (session) {
+      session.resumeAt = null;
+      this.render();
+    }
   }
 
   async openNewTabDialog(): Promise<void> {
@@ -284,6 +333,7 @@ export class LayoutManager {
         attention: false,
         broken: false,
         statusSinceMs: Date.now(),
+        resumeAt: null,
       };
       this.state.sessions.set(info.id, fresh);
       this.state.tabOrder.push(info.id);
@@ -295,13 +345,13 @@ export class LayoutManager {
     const tabs: TabViewModel[] = this.state.tabOrder
       .map((id) => this.state.sessions.get(id))
       .filter((s): s is SessionState => !!s)
-      .map((s) => ({ info: s.info, attention: s.attention, broken: s.broken }));
+      .map((s) => ({ info: s.info, attention: s.attention, broken: s.broken, resumeAt: s.resumeAt }));
     this.tabStrip.render(tabs, this.state.focusedId);
 
     const rows: SidebarRowVm[] = this.state.tabOrder
       .map((id) => this.state.sessions.get(id))
       .filter((s): s is SessionState => !!s)
-      .map((s) => ({ info: s.info, attention: s.attention, statusSinceMs: s.statusSinceMs }));
+      .map((s) => ({ info: s.info, attention: s.attention, statusSinceMs: s.statusSinceMs, resumeAt: s.resumeAt }));
     this.sidebar.render(rows, this.state.focusedId);
   }
 }
