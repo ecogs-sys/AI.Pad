@@ -2,12 +2,15 @@ import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import type {
   AttentionEvent,
+  AutoResumeSettings,
   SessionCreateOptions,
   SessionId,
   SessionInfo,
   SessionKind,
 } from '@aipad/contracts';
 import { Session } from './session.js';
+import { ResumeScheduler } from './resume-scheduler.js';
+import { parseResetTime } from './reset-time-parser.js';
 
 export interface SessionManagerEvents {
   sessionCreated: (info: SessionInfo) => void;
@@ -15,6 +18,9 @@ export interface SessionManagerEvents {
   sessionExited: (sessionId: SessionId, exitCode: number | null, signal: string | null) => void;
   sessionTitleChanged: (sessionId: SessionId, title: string) => void;
   sessionAttention: (ev: AttentionEvent) => void;
+  resumeScheduled: (sessionId: SessionId, resetAt: number) => void;
+  resumeCancelled: (sessionId: SessionId) => void;
+  resumeFired: (sessionId: SessionId) => void;
 }
 
 /**
@@ -24,6 +30,10 @@ export interface SessionManagerEvents {
  */
 export class SessionManager extends EventEmitter {
   private readonly sessions = new Map<SessionId, Session>();
+  private autoResume: AutoResumeSettings = { enabled: false, detectText: '', responseText: '' };
+  private readonly resumeScheduler = new ResumeScheduler({
+    onDue: (sessionId) => this.fireResume(sessionId),
+  });
 
   create(opts: SessionCreateOptions, kind: SessionKind = 'tab'): Session {
     const id: SessionId = randomUUID();
@@ -32,6 +42,7 @@ export class SessionManager extends EventEmitter {
 
     session.on('data', (chunk) => this.emit('sessionData', id, chunk));
     session.on('exit', ({ exitCode, signal }) => {
+      this.resumeScheduler.cancel(id);
       this.emit('sessionExited', id, exitCode, signal);
       // Keep the session in the map so its ring buffer is still readable for a moment;
       // callers explicitly call close() to remove. (See Plan 1 success criteria — clean shutdown
@@ -39,7 +50,16 @@ export class SessionManager extends EventEmitter {
     });
     session.on('titleChanged', (title) => this.emit('sessionTitleChanged', id, title));
     session.on('attention', (ev) => this.emit('sessionAttention', ev));
+    session.on('rateLimitDetected', (resetText) => {
+      if (!this.autoResume.enabled) return;
+      const resetAt = parseResetTime(resetText, new Date());
+      if (resetAt == null) return;
+      if (this.resumeScheduler.schedule(id, resetAt)) {
+        this.emit('resumeScheduled', id, resetAt);
+      }
+    });
 
+    session.setRateLimitDetectText(this.autoResume.enabled ? this.autoResume.detectText : '');
     this.emit('sessionCreated', session.info());
     return session;
   }
@@ -79,6 +99,36 @@ export class SessionManager extends EventEmitter {
       this.sessions.delete(id);
     });
     session.kill('SIGHUP');
+  }
+
+  /** Apply auto-resume settings: push the detect phrase to every session and,
+   * when disabling, cancel every pending resume. */
+  applyAutoResumeConfig(config: AutoResumeSettings): void {
+    this.autoResume = config;
+    const detect = config.enabled ? config.detectText : '';
+    for (const session of this.sessions.values()) {
+      session.setRateLimitDetectText(detect);
+    }
+    if (!config.enabled) {
+      for (const sessionId of this.resumeScheduler.cancelAll()) {
+        this.emit('resumeCancelled', sessionId);
+      }
+    }
+  }
+
+  /** Cancel a pending resume (user clicked the badge's cancel control). */
+  cancelResume(sessionId: SessionId): void {
+    if (this.resumeScheduler.cancel(sessionId)) {
+      this.emit('resumeCancelled', sessionId);
+    }
+  }
+
+  /** Invoked by the scheduler when a resume is due: type the response into the tab. */
+  private fireResume(sessionId: SessionId): void {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.info().status === 'exited') return;
+    session.write(`${this.autoResume.responseText}\r`);
+    this.emit('resumeFired', sessionId);
   }
 
   async closeAll(timeoutMs = 1500): Promise<void> {
