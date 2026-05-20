@@ -1,7 +1,7 @@
 # F6 — window.prompt() in chrome renderer for rename is unreliable
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Fixed (commit `fix(F5,F6,F16)`)
 
 ## Files
 - `apps/desktop/src/renderer/chrome/sidebar.ts:97-100`

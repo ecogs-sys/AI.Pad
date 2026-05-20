@@ -1,7 +1,7 @@
 # F14 — NotificationBridge wired after bootstrap; early attention events missed
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F4,F7,F14,F21)`)
 
 ## Files
 - `apps/desktop/src/main/index.ts:180-202`

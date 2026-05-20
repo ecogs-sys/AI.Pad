@@ -1,7 +1,7 @@
 # F20 — RingBuffer spec/impl mismatch on UTF-8 safety
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F20)`)
 
 ## Files
 - `packages/core/src/ring-buffer.ts`

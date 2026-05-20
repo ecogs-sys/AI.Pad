@@ -1,7 +1,7 @@
 # F16 — Sidebar context menu has no Escape dismiss
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F5,F6,F16)`)
 
 ## Files
 - `apps/desktop/src/renderer/chrome/sidebar.ts:82-108`

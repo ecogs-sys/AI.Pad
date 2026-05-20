@@ -1,7 +1,7 @@
 # F15 — README is significantly out of date
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F15,F24)`)
 
 ## Files
 - `README.md`

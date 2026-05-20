@@ -1,7 +1,7 @@
 # F5 — Rename via sidebar context menu never persists
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Fixed (commit `fix(F5,F6,F16)`)
 
 ## Files
 - `apps/desktop/src/renderer/chrome/layout-manager.ts:146-151` (`renameTab`)

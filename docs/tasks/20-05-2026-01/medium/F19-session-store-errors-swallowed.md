@@ -1,7 +1,7 @@
 # F19 — SessionStore save errors are silently swallowed
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Fixed (commit `fix(F19,F27)`)
 
 ## Files
 - `packages/core/src/session-store.ts:45-48`

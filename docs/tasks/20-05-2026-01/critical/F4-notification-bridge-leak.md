@@ -1,7 +1,7 @@
 # F4 — NotificationBridge leaks listeners on macOS window reopen
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Fixed (commit `fix(F4,F7,F14,F21)`)
 
 ## Files
 - `apps/desktop/src/main/index.ts:149-205` (`createChromeWindow`)

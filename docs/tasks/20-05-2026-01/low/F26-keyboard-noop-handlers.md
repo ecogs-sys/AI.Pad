@@ -1,7 +1,7 @@
 # F26 — keyboard.ts has comment-only no-op handlers
 
 **Severity:** Low
-**Status:** Open
+**Status:** Fixed (commit `fix(F10,F26)`)
 
 ## Files
 - `apps/desktop/src/renderer/chrome/keyboard.ts:48-49`
