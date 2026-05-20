@@ -5,6 +5,7 @@ import type {
   SessionCreateOptions,
   SessionId,
   SessionInfo,
+  SessionKind,
   SessionStatus,
 } from '@aipad/contracts';
 import { AttentionDetector } from './attention-detector.js';
@@ -34,6 +35,7 @@ function shellCommand(shell: SessionCreateOptions['shell']): string {
 export class Session extends EventEmitter {
   readonly id: SessionId;
   readonly opts: SessionCreateOptions;
+  readonly kind: SessionKind;
   readonly ringBuffer: RingBuffer;
   private readonly pty: pty.IPty;
   private readonly detector = new AttentionDetector();
@@ -41,10 +43,11 @@ export class Session extends EventEmitter {
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
 
-  constructor(id: SessionId, opts: SessionCreateOptions) {
+  constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab') {
     super();
     this.id = id;
     this.opts = opts;
+    this.kind = kind;
     this.ringBuffer = new RingBuffer(DEFAULT_RING_CAPACITY);
     this._title = opts.title ?? shellCommand(opts.shell);
 
@@ -74,6 +77,8 @@ export class Session extends EventEmitter {
     this.pty.onExit(({ exitCode, signal }) => {
       this._status = 'exited';
       this._exitCode = exitCode;
+      // The session is done — clear the detector's pending idle timer.
+      this.detector.dispose();
       this.emit('exit', { exitCode, signal: signal != null ? String(signal) : null });
     });
   }
@@ -115,6 +120,7 @@ export class Session extends EventEmitter {
       shell: this.opts.shell,
       cwd: this.opts.cwd,
       status: this._status,
+      kind: this.kind,
       pid: this.pty.pid,
       exitCode: this._exitCode,
     };

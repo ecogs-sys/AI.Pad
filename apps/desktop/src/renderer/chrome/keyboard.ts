@@ -45,6 +45,11 @@ const ACTION_HANDLERS: Record<BindingId, (m: LayoutManager) => void> = {
   jumpTab8: (m) => m.focusIndex(8),
   jumpTab9: (m) => m.focusIndex(9),
   toggleSidebar: (m) => m.toggleSidebar(),
+  // These act on the focused terminal view, not the chrome. They are dispatched by the
+  // Electron menu accelerator as a TerminalAction event; the chrome handler is a no-op.
+  splitHorizontal: () => {},
+  splitVertical: () => {},
+  closePane: () => {},
 };
 
 export function wireKeyboard(manager: LayoutManager): void {

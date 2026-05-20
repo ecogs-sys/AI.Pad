@@ -1,0 +1,40 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --filter './packages/*' build
+      - run: pnpm test
+      # Build the desktop app on every OS so packaging-time breakage is caught per PR.
+      - name: Build desktop app
+        run: pnpm --filter @aipad/desktop build
+      - name: Install Playwright + Chromium
+        run: pnpm --filter @aipad/e2e exec playwright install --with-deps chromium
+      # E2E on Linux for every PR + push.
+      - name: Run E2E (Linux, xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum pnpm test:e2e
+      # Full E2E matrix on pushes to main (Windows + macOS).
+      - name: Run E2E (Windows/macOS, main only)
+        if: runner.os != 'Linux' && github.event_name == 'push'
+        run: pnpm test:e2e

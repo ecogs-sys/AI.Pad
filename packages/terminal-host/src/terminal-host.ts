@@ -45,6 +45,10 @@ export class TerminalHost {
   private readonly sessionId: SessionId;
   private unsubscribers: Array<() => void> = [];
   private resizeObserver: ResizeObserver | null = null;
+  /** Until the ring-buffer replay completes, live data is buffered here so it cannot
+   * be written to xterm ahead of the snapshot. */
+  private replayComplete = false;
+  private pendingChunks: string[] = [];
 
   constructor(opts: TerminalHostOptions) {
     this.sessionId = opts.sessionId;
@@ -87,12 +91,17 @@ export class TerminalHost {
       const r = response as { sessionId: string; data: string } | { error: string };
       if ('error' in r) {
         console.warn('[terminal] replay failed:', r.error);
-        return;
+      } else if (r.data) {
+        this.term.write(decodeUtf8Base64(r.data));
       }
-      if (!r.data) return;
-      this.term.write(decodeUtf8Base64(r.data));
     } catch (err) {
       console.warn('[terminal] replay threw:', err);
+    } finally {
+      // Write the snapshot first, then drain any live chunks that arrived during
+      // replay — preserving order — then let subsequent chunks write directly.
+      for (const chunk of this.pendingChunks) this.term.write(chunk);
+      this.pendingChunks = [];
+      this.replayComplete = true;
     }
   }
 
@@ -110,7 +119,10 @@ export class TerminalHost {
     const onData = this.bridge.on(IpcChannel.SessionData, (raw) => {
       const event = raw as { sessionId: SessionId; data: string };
       if (event.sessionId !== this.sessionId) return;
-      this.term.write(decodeUtf8Base64(event.data));
+      const decoded = decodeUtf8Base64(event.data);
+      // Before replay finishes, buffer live data so it never precedes the snapshot.
+      if (this.replayComplete) this.term.write(decoded);
+      else this.pendingChunks.push(decoded);
     });
 
     const onExit = this.bridge.on(IpcChannel.SessionExited, (raw) => {

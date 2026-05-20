@@ -1,0 +1,39 @@
+{
+  "appId": "com.ecogs.aipad",
+  "productName": "AI.Pad",
+  "directories": {
+    "buildResources": "build",
+    "output": "release/${version}"
+  },
+  "files": [
+    "out/**/*",
+    "package.json"
+  ],
+  "asarUnpack": [
+    "node_modules/node-pty/**/*"
+  ],
+  "extraResources": [
+    { "from": "build/icon.png", "to": "icon.png" }
+  ],
+  "nodeGypRebuild": false,
+  "npmRebuild": false,
+  "win": {
+    "target": ["nsis"]
+  },
+  "mac": {
+    "target": ["dmg"],
+    "category": "public.app-category.developer-tools",
+    "identity": null
+  },
+  "linux": {
+    "target": ["AppImage"],
+    "category": "Development"
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "ecogs-sys",
+      "repo": "AI.Pad"
+    }
+  ]
+}

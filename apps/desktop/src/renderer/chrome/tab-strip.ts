@@ -3,12 +3,14 @@ import type { SessionId, SessionInfo } from '@aipad/contracts';
 export interface TabViewModel {
   info: SessionInfo;
   attention: boolean;
+  broken: boolean;
 }
 
 export interface TabStripCallbacks {
   onTabClick: (sessionId: SessionId) => void;
   onTabClose: (sessionId: SessionId) => void;
   onNewTab: () => void;
+  onTabReorder: (sessionId: SessionId, beforeId: SessionId | null) => void;
 }
 
 export class TabStrip {
@@ -39,7 +41,12 @@ export class TabStrip {
 
       const title = document.createElement('span');
       title.className = 'title';
-      title.textContent = tab.info.title || tab.info.shell;
+      const label = tab.info.title || tab.info.shell;
+      title.textContent = tab.broken
+        ? `⚠ ${label}`
+        : tab.info.status === 'exited'
+          ? `${label} (exited)`
+          : label;
       el.appendChild(title);
 
       const close = document.createElement('span');
@@ -53,6 +60,19 @@ export class TabStrip {
       el.appendChild(close);
 
       el.addEventListener('click', () => this.callbacks.onTabClick(tab.info.id));
+
+      el.draggable = true;
+      el.addEventListener('dragstart', (ev) => {
+        ev.dataTransfer?.setData('text/plain', tab.info.id);
+      });
+      el.addEventListener('dragover', (ev) => ev.preventDefault());
+      el.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        const draggedId = ev.dataTransfer?.getData('text/plain') as SessionId | undefined;
+        if (!draggedId || draggedId === tab.info.id) return;
+        this.callbacks.onTabReorder(draggedId, tab.info.id);
+      });
+
       this.root.appendChild(el);
     }
 

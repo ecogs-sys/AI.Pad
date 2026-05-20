@@ -65,6 +65,16 @@ describe('SessionManager + real PTY', () => {
     expect(streamB.read()).not.toContain(tagA);
   });
 
+  it('defaults new sessions to kind "tab" and tags pane sessions as "pane"', async () => {
+    const tab = manager.create({ shell: defaultShell(), cwd: homedir(), cols: 80, rows: 24 });
+    const pane = manager.create(
+      { shell: defaultShell(), cwd: homedir(), cols: 80, rows: 24 },
+      'pane',
+    );
+    expect(tab.info().kind).toBe('tab');
+    expect(pane.info().kind).toBe('pane');
+  });
+
   it('reports exit and stops emitting data after the shell quits', async () => {
     const session = manager.create({ shell: defaultShell(), cwd: homedir(), cols: 80, rows: 24 });
     let exited = false;

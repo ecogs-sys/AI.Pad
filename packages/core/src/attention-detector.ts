@@ -5,22 +5,26 @@ import type { AttentionEvent, AttentionSignal } from '@aipad/contracts';
 const BEL = 0x07;
 const OSC_PREFIX = Buffer.from('\x1b]1337;AIPadAttention=', 'utf8');
 const PAYLOAD_MAX = ATTENTION_SNIPPET_MAX_LEN;
+const IDLE_MS = 1500;
+const TAIL_BUFFER_MAX = 512; // Bytes of recent output we keep for prompt-pattern matching.
+const PROMPT_PATTERN = /[\$#%>:]\s*$/;
 
 export interface AttentionDetectorEvents {
   attention: (ev: AttentionEvent) => void;
 }
 
 /**
- * Byte-stream scanner that emits attention events for terminal BEL (\x07) and the AI.Pad
- * OSC escape (\x1b]1337;AIPadAttention=...\x07). Idle-prompt detection is deferred to Plan 3.
- *
- * State machine: outside-OSC vs. inside-OSC. BEL inside OSC is the terminator, NOT a bell event.
- * Prefix matching tolerates chunk boundaries (one byte at a time is fine).
+ * Byte-stream scanner that emits attention events for terminal BEL (\x07), the AI.Pad
+ * OSC escape (\x1b]1337;AIPadAttention=...\x07), and idle prompts (no output for 1.5 s
+ * after a prompt-like trailing line).
  */
 export class AttentionDetector extends EventEmitter {
   private inOsc = false;
   private oscPayload = '';
   private prefixMatchPos = 0;
+  private tailBuffer = '';
+  private idleTimer: NodeJS.Timeout | null = null;
+  private idleEmittedForCurrentQuiet = false;
 
   process(chunk: Buffer): void {
     if (chunk.length === 0) return;
@@ -34,13 +38,11 @@ export class AttentionDetector extends EventEmitter {
           this.oscPayload = '';
           this.inOsc = false;
         } else if (this.oscPayload.length < PAYLOAD_MAX) {
-          // ASCII-only by contract: AI.Pad OSC payloads are documented as identifier-style strings.
           this.oscPayload += String.fromCharCode(byte);
         }
         continue;
       }
 
-      // Outside OSC — try to extend an in-progress prefix match.
       if (byte === OSC_PREFIX[this.prefixMatchPos]) {
         this.prefixMatchPos++;
         if (this.prefixMatchPos === OSC_PREFIX.length) {
@@ -50,8 +52,6 @@ export class AttentionDetector extends EventEmitter {
         continue;
       }
 
-      // Mismatch: reset prefix progress. The mismatching byte still needs processing
-      // (could itself be a plain BEL or the start of a fresh prefix).
       if (this.prefixMatchPos > 0) {
         this.prefixMatchPos = 0;
         // Re-process this byte from scratch. Safe because prefixMatchPos is now 0, so
@@ -64,11 +64,47 @@ export class AttentionDetector extends EventEmitter {
         this.emitEvent('bell', 1);
       }
     }
+
+    // Maintain the tail buffer for idle-prompt heuristic. Append decoded chunk; cap length.
+    this.tailBuffer = (this.tailBuffer + chunk.toString('utf8')).slice(-TAIL_BUFFER_MAX);
+
+    // Any new output resets the idle window and re-arms the once-per-quiet emit.
+    this.idleEmittedForCurrentQuiet = false;
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => this.checkIdle(), IDLE_MS);
+    // Do not let a pending idle timer keep the Node event loop (or a test run) alive.
+    this.idleTimer.unref?.();
+  }
+
+  /** Clear any pending idle timer and drop listeners. Call when the session ends. */
+  dispose(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+    this.removeAllListeners();
+  }
+
+  private checkIdle(): void {
+    if (this.idleEmittedForCurrentQuiet) return;
+    if (!PROMPT_PATTERN.test(this.tailBuffer)) return;
+    this.idleEmittedForCurrentQuiet = true;
+    const lastNewline = this.tailBuffer.lastIndexOf('\n');
+    const lastLine = this.tailBuffer.slice(lastNewline + 1);
+    const snippet = lastLine.slice(-PAYLOAD_MAX);
+    const ev: AttentionEvent = {
+      sessionId: '__pending__',
+      signal: 'idle',
+      confidence: 0.7,
+      timestamp: Date.now(),
+      ...(snippet ? { snippet } : {}),
+    };
+    this.emit('attention', ev);
   }
 
   private emitEvent(signal: AttentionSignal, confidence: number, snippet?: string): void {
     const ev: AttentionEvent = {
-      sessionId: '__pending__', // Caller (Session) rewrites this with the actual id.
+      sessionId: '__pending__',
       signal,
       confidence,
       timestamp: Date.now(),
