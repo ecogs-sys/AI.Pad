@@ -4,6 +4,8 @@ export interface TabViewModel {
   info: SessionInfo;
   attention: boolean;
   broken: boolean;
+  /** Epoch ms a pending auto-resume will fire, or null when none is scheduled. */
+  resumeAt: number | null;
 }
 
 export interface TabStripCallbacks {
@@ -49,6 +51,14 @@ export class TabStrip {
           : label;
       el.appendChild(title);
 
+      if (tab.resumeAt !== null) {
+        const badge = document.createElement('span');
+        badge.className = 'resume-badge';
+        badge.textContent = `⏳ ${formatClock(tab.resumeAt)}`;
+        badge.title = 'Auto-resume scheduled';
+        el.appendChild(badge);
+      }
+
       const close = document.createElement('span');
       close.className = 'close';
       close.textContent = '×';
@@ -83,4 +93,9 @@ export class TabStrip {
     plus.addEventListener('click', () => this.callbacks.onNewTab());
     this.root.appendChild(plus);
   }
+}
+
+/** Format an epoch-ms instant as a short local clock time, e.g. "9:30 PM". */
+export function formatClock(ms: number): string {
+  return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }

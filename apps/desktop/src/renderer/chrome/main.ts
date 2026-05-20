@@ -31,6 +31,7 @@ const manager = new LayoutManager({
       onDuplicate: (id) => void manager.duplicateTab(id),
       onRestart: (id) => void manager.restartTab(id),
       onClose: (id) => void manager.closeTab(id),
+      onResumeCancel: (id) => manager.cancelResume(id),
     },
   }),
 });
