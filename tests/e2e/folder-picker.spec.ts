@@ -31,6 +31,7 @@ test('New Tab dialog folder button fills the working-directory input', async () 
   // Open the New Tab dialog and click the folder-browse button.
   await chrome.click('#new-tab');
   await expect(chrome.locator('#ns-browse')).toBeVisible({ timeout: 8_000 });
+  await expect(chrome.locator('#ns-cwd')).not.toHaveValue(fakePath);
   await chrome.click('#ns-browse');
 
   // The stubbed handler resolves and the input is filled with the chosen path.
