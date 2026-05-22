@@ -65,11 +65,17 @@ export function showNewSessionDialog(
 
     if (opts.pickDirectory) {
       browseEl.addEventListener('click', () => {
+        if (browseEl.disabled) return;
+        browseEl.disabled = true;
         void (async () => {
-          const picked = await opts.pickDirectory!();
-          if (picked) {
-            cwdEl.value = picked;
-            cwdEl.focus();
+          try {
+            const picked = await opts.pickDirectory!();
+            if (picked) {
+              cwdEl.value = picked;
+              cwdEl.focus();
+            }
+          } finally {
+            browseEl.disabled = false;
           }
         })();
       });
