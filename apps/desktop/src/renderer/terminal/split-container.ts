@@ -220,6 +220,9 @@ export class SplitContainer {
     const onDocKey = (ev: KeyboardEvent): void => {
       if (ev.key === 'Escape') this.closeContextMenu();
     };
+    // onDocMouseDown is registered from the contextmenu handler, which always fires
+    // after the initiating mousedown has completed — so it cannot close the menu for
+    // the very right-click that opened it.
     document.addEventListener('mousedown', onDocMouseDown);
     document.addEventListener('keydown', onDocKey);
     this.menuCleanup = (): void => {
