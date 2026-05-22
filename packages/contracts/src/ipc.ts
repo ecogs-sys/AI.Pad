@@ -31,6 +31,7 @@ export const IpcChannel = {
   SettingsGet: 'core.settings.get',
   SettingsUpdate: 'core.settings.update',
   ResumeCancel: 'core.resume.cancel',
+  DialogPickDirectory: 'core.dialog.pick-directory',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -113,6 +114,15 @@ export const SessionCreateForPanePayloadSchema = z.object({
    * when the tab closes, without affecting panes in other tabs. */
   tabId: SessionIdSchema,
 });
+
+/** Renderer asks main to open a native folder picker. `defaultPath` is the directory
+ * the picker opens at; an empty string means the OS default. The handler resolves with
+ * the chosen absolute path, or null when the user cancels. */
+export const DialogPickDirectoryPayloadSchema = z.object({
+  defaultPath: z.string().default(''),
+});
+
+export type DialogPickDirectoryResult = string | null;
 
 // --- Event payloads ---
 
