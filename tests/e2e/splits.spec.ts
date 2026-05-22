@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test';
+import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { mkdtempSync } from 'node:fs';
@@ -22,6 +22,16 @@ async function sessionCount(chrome: import('@playwright/test').Page): Promise<nu
     const list = (await aipad.send('core.session.list')) as unknown[];
     return list.length;
   });
+}
+
+/** Click a menu item in the application's Tabs submenu by label (runs in the main process). */
+function clickMenu(app: ElectronApplication, label: string): Promise<void> {
+  return app.evaluate(({ Menu }, lbl) => {
+    const menu = Menu.getApplicationMenu();
+    const tabs = menu?.items.find((m) => m.label === 'Tabs');
+    const item = tabs?.submenu?.items.find((m) => m.label === lbl);
+    item?.click();
+  }, label);
 }
 
 test('split menu action creates a new pane session', async () => {
@@ -69,22 +79,14 @@ test('split vertically then close the pane via the menu', async () => {
   // Let the terminal renderer mount its SplitContainer + TerminalAction listener.
   await chrome.waitForTimeout(2_500);
 
-  const clickMenu = (label: string): Promise<void> =>
-    electronApp.evaluate(({ Menu }, lbl) => {
-      const menu = Menu.getApplicationMenu();
-      const tabs = menu?.items.find((m) => m.label === 'Tabs');
-      const item = tabs?.submenu?.items.find((m) => m.label === lbl);
-      item?.click();
-    }, label);
-
   // Split → a pane session is added (total 2).
-  await clickMenu('Split Vertically');
+  await clickMenu(electronApp, 'Split Vertically');
   await expect.poll(() => sessionCount(chrome), { timeout: 8_000 }).toBe(2);
 
   // Close Pane → the pane session is removed (total back to 1).
-  await clickMenu('Close Pane');
+  await clickMenu(electronApp, 'Close Pane');
   await expect.poll(() => sessionCount(chrome), { timeout: 8_000 }).toBe(1);
-  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1);
+  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 8_000 });
 
   await electronApp.close();
 });
