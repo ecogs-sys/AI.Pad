@@ -1,3 +1,5 @@
+import './styles/tokens.css';
+import './styles/chrome.css';
 import type { PreloadBridge } from '@aipad/terminal-host';
 import { TabStrip } from './tab-strip.js';
 import { Sidebar } from './sidebar.js';
