@@ -307,11 +307,19 @@ new NotificationBridge({
 });
 
 async function createChromeWindow(): Promise<void> {
+  const isMac = process.platform === 'darwin';
   chromeWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     backgroundColor: '#1c1f25',
     icon: iconPath(),
+    // Win/Linux: frameless so the in-window <div id="titlebar"> can render the menu
+    // and window controls. macOS: keep the platform traffic lights but inset them so
+    // they overlay our titlebar area; the in-window titlebar shows glyph + title only.
+    ...(isMac
+      ? { titleBarStyle: 'hiddenInset' as const }
+      : { frame: false }
+    ),
     webPreferences: {
       preload: preloadPath(),
       sandbox: false,
