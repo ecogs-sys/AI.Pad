@@ -16,7 +16,7 @@ const sidebarToggleEl = document.getElementById('sidebar-toggle')!;
 const bodyEl = document.getElementById('body')!;
 const titlebarEl = document.getElementById('titlebar')!;
 
-const platform = navigator.userAgent.includes('Mac')     ? 'darwin'
+const platform = navigator.userAgent.includes('Mac OS') ? 'darwin'
               : navigator.userAgent.includes('Windows') ? 'win32'
               : 'linux';
 new TitleBar(titlebarEl, { bridge, platform });
