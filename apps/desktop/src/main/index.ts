@@ -4,10 +4,10 @@ import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@aipad/core';
 import type { Shell, SessionInfo, AppSettings } from '@aipad/contracts';
-import { AppSettingsSchema, ResumeCancelPayloadSchema } from '@aipad/contracts';
+import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
-import { buildAppMenu } from './app-menu.js';
+import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
 import { bootstrapSessions } from './session-bootstrap.js';
 import { setupAutoUpdate } from './auto-update.js';
 
@@ -132,6 +132,40 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0]): 
 
 // IPC: renderer asks for the platform home directory (the chrome cannot read it).
 ipcMain.handle(IpcChannel.LayoutDefaultCwd, (): string => homedir());
+
+// IPC: custom titlebar in the chrome renderer asks main to pop one of the named
+// submenus from app-menu.ts at the given screen coordinates. This lets the in-window
+// menu bar share a single source of truth with the OS application menu — no item
+// duplication, accelerators stay correct.
+ipcMain.handle(IpcChannel.ChromeMenuPopup, (_e, raw): { ok: true } | { error: string } => {
+  const parsed = ChromeMenuPopupPayloadSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.message };
+  if (!chromeWindow) return { error: 'no chrome window' };
+  const submenu = buildSubmenu(
+    parsed.data.menu as MenuName,
+    () => chromeWindow,
+    () => focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null,
+  );
+  submenu.popup({
+    window: chromeWindow,
+    x: parsed.data.x,
+    y: parsed.data.y,
+  });
+  return { ok: true };
+});
+
+// IPC: custom titlebar's min/max/close buttons drive the BrowserWindow.
+ipcMain.handle(IpcChannel.ChromeWindowControl, (_e, raw): { ok: true } | { error: string } => {
+  const parsed = ChromeWindowControlPayloadSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.message };
+  if (!chromeWindow) return { error: 'no chrome window' };
+  if (parsed.data.action === 'minimize') chromeWindow.minimize();
+  else if (parsed.data.action === 'maximize') {
+    if (chromeWindow.isMaximized()) chromeWindow.unmaximize();
+    else chromeWindow.maximize();
+  } else if (parsed.data.action === 'close') chromeWindow.close();
+  return { ok: true };
+});
 
 // IPC: chrome renderer reads the current settings.
 ipcMain.handle(IpcChannel.SettingsGet, (): AppSettings => appSettings);

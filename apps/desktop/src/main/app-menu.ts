@@ -1,4 +1,4 @@
-import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
+import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView, shell } from 'electron';
 import { Bindings } from '@aipad/keymap';
 import { IpcChannel } from '@aipad/contracts';
 
@@ -7,20 +7,22 @@ function send(action: string, chromeWindow: () => BrowserWindow | null): void {
   win?.webContents.send(IpcChannel.ActionInvoke, { action });
 }
 
-/**
- * Build the application menu. Accelerators on menu items fire OS-globally when the app is
- * focused, regardless of which WebContentsView (chrome vs. terminal) currently has keyboard
- * focus. This is the only way to make Ctrl+T / Ctrl+W / Ctrl+Tab / etc. work without
- * requiring the user to click on the chrome bar first.
- */
-export function buildAppMenu(
+export type MenuName = 'File' | 'Tabs' | 'View' | 'Window' | 'Help';
+
+/** Templates per top-level menu so the custom titlebar can pop them individually.
+ * `buildAppMenu` composes the same templates into the OS application menu. */
+function buildTemplates(
   chromeWindow: () => BrowserWindow | null,
   getActiveTerminalView: () => WebContentsView | null,
-): Menu {
+): Record<MenuName, MenuItemConstructorOptions[]> {
   function sendTerminal(action: 'splitHorizontal' | 'splitVertical' | 'closePane'): void {
     const view = getActiveTerminalView();
     view?.webContents.send(IpcChannel.TerminalAction, { action });
   }
+
+  const fileSubmenu: MenuItemConstructorOptions[] = [
+    { role: 'quit' },
+  ];
 
   const tabsSubmenu: MenuItemConstructorOptions[] = [
     { label: 'New Tab',      accelerator: Bindings.newTab.accelerator,   click: () => send('newTab', chromeWindow) },
@@ -50,13 +52,62 @@ export function buildAppMenu(
     { type: 'separator' },
     { role: 'reload' },
     { role: 'toggleDevTools' },
-    { type: 'separator' },
-    { role: 'togglefullscreen' },
   ];
 
+  const windowSubmenu: MenuItemConstructorOptions[] = [
+    { role: 'togglefullscreen' },
+    { type: 'separator' },
+    { role: 'zoomIn' },
+    { role: 'zoomOut' },
+    { role: 'resetZoom' },
+    { type: 'separator' },
+    { role: 'minimize' },
+    { role: 'close' },
+  ];
+
+  const helpSubmenu: MenuItemConstructorOptions[] = [
+    {
+      label: 'Report Issue…',
+      click: () => { void shell.openExternal('https://github.com/ecogs-sys/AI.Pad/issues'); },
+    },
+  ];
+
+  return {
+    File: fileSubmenu,
+    Tabs: tabsSubmenu,
+    View: viewSubmenu,
+    Window: windowSubmenu,
+    Help: helpSubmenu,
+  };
+}
+
+/**
+ * Build the application menu. Accelerators on menu items fire OS-globally when the
+ * app is focused, regardless of which WebContentsView (chrome vs. terminal) currently
+ * has keyboard focus. This is the only way to make Ctrl+T / Ctrl+W / Ctrl+Tab / etc.
+ * work without requiring the user to click on the chrome bar first.
+ */
+export function buildAppMenu(
+  chromeWindow: () => BrowserWindow | null,
+  getActiveTerminalView: () => WebContentsView | null,
+): Menu {
+  const t = buildTemplates(chromeWindow, getActiveTerminalView);
   return Menu.buildFromTemplate([
-    { label: 'File', submenu: [{ role: 'quit' }] },
-    { label: 'Tabs', submenu: tabsSubmenu },
-    { label: 'View', submenu: viewSubmenu },
+    { label: 'File',   submenu: t.File },
+    { label: 'Tabs',   submenu: t.Tabs },
+    { label: 'View',   submenu: t.View },
+    { label: 'Window', submenu: t.Window },
+    { label: 'Help',   submenu: t.Help },
   ]);
+}
+
+/** Build a one-off Menu for the named submenu so the custom titlebar can popup() it
+ * at a specific (x, y). Rebuilt per call so click callbacks see fresh closures. */
+export function buildSubmenu(
+  name: MenuName,
+  chromeWindow: () => BrowserWindow | null,
+  getActiveTerminalView: () => WebContentsView | null,
+): Menu {
+  const t = buildTemplates(chromeWindow, getActiveTerminalView);
+  return Menu.buildFromTemplate(t[name]);
 }
