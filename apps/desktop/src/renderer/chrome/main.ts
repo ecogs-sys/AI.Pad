@@ -3,6 +3,7 @@ import './styles/chrome.css';
 import type { PreloadBridge } from '@aipad/terminal-host';
 import { TabStrip } from './tab-strip.js';
 import { Sidebar } from './sidebar.js';
+import { TitleBar } from './titlebar.js';
 import { LayoutManager } from './layout-manager.js';
 import { wireKeyboard, routeMenuAction } from './keyboard.js';
 import { IpcChannel } from '@aipad/contracts';
@@ -13,6 +14,12 @@ const tabStripEl = document.getElementById('tab-strip')!;
 const sidebarListEl = document.getElementById('sidebar-list')!;
 const sidebarToggleEl = document.getElementById('sidebar-toggle')!;
 const bodyEl = document.getElementById('body')!;
+const titlebarEl = document.getElementById('titlebar')!;
+
+const platform = navigator.userAgent.includes('Mac')     ? 'darwin'
+              : navigator.userAgent.includes('Windows') ? 'win32'
+              : 'linux';
+new TitleBar(titlebarEl, { bridge, platform });
 
 const manager = new LayoutManager({
   bridge,
