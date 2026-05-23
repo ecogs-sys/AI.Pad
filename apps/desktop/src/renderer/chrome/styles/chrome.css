@@ -13,7 +13,7 @@ html, body {
 
 #chrome-root {
   display: grid;
-  grid-template-rows: var(--tabbar-h) 1fr;
+  grid-template-rows: var(--titlebar-h) var(--tabbar-h) 1fr;
   height: 100%;
 }
 
@@ -162,3 +162,68 @@ body.sidebar-collapsed #sidebar-label { display: none; }
 .dialog button.primary:hover { background: #6a96cd; }
 .dialog input[type=checkbox] { width: auto; margin-right: 6px; vertical-align: middle; }
 .dialog label.checkbox-row   { display: flex; align-items: center; color: var(--text-1); margin: 10px 0 4px; }
+
+/* ── Titlebar ────────────────────────────────────────────────────────────── */
+#titlebar {
+  height: var(--titlebar-h);
+  background: var(--bg-1);
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border-1);
+  user-select: none;
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+}
+#titlebar .tb-glyph {
+  display: flex;
+  align-items: center;
+  padding: 0 10px 0 12px;
+}
+#titlebar .tb-menu {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+#titlebar .tb-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 100%;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+#titlebar .tb-menu-item:hover { background: var(--bg-3); color: var(--text-1); }
+#titlebar .tb-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-3);
+  letter-spacing: 0.2px;
+}
+#titlebar .tb-title b { color: var(--text-2); font-weight: 500; }
+#titlebar .tb-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+#titlebar .tb-ctrl {
+  width: 46px;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  cursor: pointer;
+}
+#titlebar .tb-ctrl:hover { background: var(--bg-3); color: var(--text-1); }
+#titlebar .tb-ctrl.close:hover { background: #c4534b; color: #fff; }
+
+/* macOS: traffic lights sit in the top-left at (~14, ~12) with 70px of width.
+ * Offset our glyph past them and hide the menu strip + window controls. */
+#titlebar[data-platform="darwin"] .tb-glyph    { padding-left: 78px; }
+#titlebar[data-platform="darwin"] .tb-menu     { display: none; }
+#titlebar[data-platform="darwin"] .tb-controls { display: none; }
