@@ -1,10 +1,10 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@aipad/core';
 import type { Shell, SessionInfo, AppSettings } from '@aipad/contracts';
-import { AppSettingsSchema, ResumeCancelPayloadSchema } from '@aipad/contracts';
+import { AppSettingsSchema, ResumeCancelPayloadSchema, DialogPickDirectoryPayloadSchema } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu } from './app-menu.js';
@@ -132,6 +132,19 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0]): 
 
 // IPC: renderer asks for the platform home directory (the chrome cannot read it).
 ipcMain.handle(IpcChannel.LayoutDefaultCwd, (): string => homedir());
+
+// IPC: renderer asks main to open the OS-native folder picker. Returns the chosen
+// absolute path, or null if cancelled. Parented to the chrome window when available.
+ipcMain.handle(IpcChannel.DialogPickDirectory, async (_e, raw): Promise<string | null> => {
+  const parsed = DialogPickDirectoryPayloadSchema.safeParse(raw ?? {});
+  const defaultPath = parsed.success ? parsed.data.defaultPath : '';
+  const options: Electron.OpenDialogOptions = { properties: ['openDirectory'] };
+  if (defaultPath) options.defaultPath = defaultPath;
+  const result = chromeWindow
+    ? await dialog.showOpenDialog(chromeWindow, options)
+    : await dialog.showOpenDialog(options);
+  return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]!;
+});
 
 // IPC: chrome renderer reads the current settings.
 ipcMain.handle(IpcChannel.SettingsGet, (): AppSettings => appSettings);
