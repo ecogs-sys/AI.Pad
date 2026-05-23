@@ -276,7 +276,7 @@ async function createChromeWindow(): Promise<void> {
   chromeWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#1c1f25',
     icon: iconPath(),
     webPreferences: {
       preload: preloadPath(),
