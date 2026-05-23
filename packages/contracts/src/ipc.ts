@@ -31,6 +31,8 @@ export const IpcChannel = {
   SettingsGet: 'core.settings.get',
   SettingsUpdate: 'core.settings.update',
   ResumeCancel: 'core.resume.cancel',
+  ChromeMenuPopup: 'core.chrome.menu-popup',
+  ChromeWindowControl: 'core.chrome.window-control',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -102,6 +104,20 @@ export const LayoutModalPayloadSchema = z.object({
 /** Sent after a drag-reorder so main can persist the authoritative tab order. */
 export const LayoutReorderTabsPayloadSchema = z.object({
   order: z.array(SessionIdSchema),
+});
+
+/** Renderer asks main to popup() one of the named submenus from app-menu.ts at the
+ * given screen coordinates. Used by the custom in-window titlebar on Windows/Linux. */
+export const ChromeMenuPopupPayloadSchema = z.object({
+  menu: z.enum(['File', 'Tabs', 'View', 'Window', 'Help']),
+  x: z.number().int().nonnegative(),
+  y: z.number().int().nonnegative(),
+});
+
+/** Renderer asks main to drive the BrowserWindow's min/max/close controls.
+ * Used by the custom in-window titlebar on Windows/Linux. */
+export const ChromeWindowControlPayloadSchema = z.object({
+  action: z.enum(['minimize', 'maximize', 'close']),
 });
 
 export const SessionCreateForPanePayloadSchema = z.object({
