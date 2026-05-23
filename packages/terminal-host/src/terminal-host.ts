@@ -61,8 +61,29 @@ export class TerminalHost {
       convertEol: false,
       scrollback: 5000,
       theme: {
-        background: '#1e1e1e',
-        foreground: '#d4d4d4',
+        background:    '#1c1f25', // --term-bg / --bg-0
+        foreground:    '#e8eaee', // --term-fg
+        cursor:        '#e8eaee',
+        cursorAccent:  '#1c1f25',
+        selectionBackground: '#7CA8E059', // --accent-glow
+        // ANSI standard colors
+        black:         '#1c1f25',
+        red:           '#d27566', // --term-red
+        green:         '#82c69b', // --term-green
+        yellow:        '#d8c376', // --term-yellow
+        blue:          '#7CA8E0', // --term-blue / --accent
+        magenta:       '#c388d8', // --term-magenta
+        cyan:          '#7dc3d4', // --term-cyan
+        white:         '#e8eaee',
+        // ANSI bright colors
+        brightBlack:   '#5a5e66',
+        brightRed:     '#e08879',
+        brightGreen:   '#9bd6b3',
+        brightYellow:  '#e8d489',
+        brightBlue:    '#9ac2f0',
+        brightMagenta: '#d39ce8',
+        brightCyan:    '#92d5e8',
+        brightWhite:   '#f4f5f7',
       },
     });
     this.fit = new FitAddon();
