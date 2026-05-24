@@ -241,43 +241,6 @@ body.sidebar-collapsed .sidebar-row { padding: 8px; }
 }
 #dialog-mount.open { display: flex; }
 
-.dialog {
-  background: var(--bg-1);
-  padding: 18px 22px;
-  border-radius: 6px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  min-width: 360px;
-  font-size: 12px;
-}
-.dialog h2 { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
-.dialog label { display: block; margin: 10px 0 4px; color: var(--text-3); }
-.dialog select, .dialog input {
-  width: 100%;
-  padding: 6px 8px;
-  background: var(--bg-0);
-  color: var(--text-1);
-  border: 1px solid var(--border-1);
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 12px;
-  box-sizing: border-box;
-}
-.dialog .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-.dialog button {
-  padding: 6px 14px;
-  background: var(--bg-2);
-  color: var(--text-1);
-  border: 1px solid var(--border-1);
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12px;
-}
-.dialog button.primary { background: var(--accent); border-color: var(--accent); color: #0d1117; }
-.dialog button:hover         { background: var(--bg-3); }
-.dialog button.primary:hover { background: #6a96cd; }
-.dialog input[type=checkbox] { width: auto; margin-right: 6px; vertical-align: middle; }
-.dialog label.checkbox-row   { display: flex; align-items: center; color: var(--text-1); margin: 10px 0 4px; }
 
 /* ── Titlebar ────────────────────────────────────────────────────────────── */
 #titlebar {
@@ -458,3 +421,13 @@ body.sidebar-collapsed .sidebar-row { padding: 8px; }
   padding: 7px 16px;
 }
 .dlg-btn-primary:hover { background: #6a96cd; color: #0d1117; }
+
+select.dlg-input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(177,180,186,0.7)' d='M0 0h10L5 6z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
