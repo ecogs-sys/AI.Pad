@@ -49,7 +49,7 @@ test('opening a 2nd tab and triggering BEL badges the inactive tab', async () =>
 
   // Wait for the attention dot to appear on the second tab.
   await expect(
-    chrome.locator(`#tab-strip .tab[data-session-id="${secondTabId}"] .dot.attention`),
+    chrome.locator(`#tab-strip .tab[data-session-id="${secondTabId}"] .dot.awaiting`),
   ).toBeVisible({ timeout: 6_000 });
 
   await electronApp.close();
