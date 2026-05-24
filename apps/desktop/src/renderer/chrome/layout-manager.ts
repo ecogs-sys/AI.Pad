@@ -354,5 +354,8 @@ export class LayoutManager {
       .filter((s): s is SessionState => !!s)
       .map((s) => ({ info: s.info, attention: s.attention, statusSinceMs: s.statusSinceMs, resumeAt: s.resumeAt }));
     this.sidebar.render(rows, this.state.focusedId);
+
+    const countEl = document.getElementById('sidebar-count');
+    if (countEl) countEl.textContent = `${rows.length} active`;
   }
 }
