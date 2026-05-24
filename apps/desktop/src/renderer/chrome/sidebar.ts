@@ -1,5 +1,4 @@
 import type { SessionId, SessionInfo } from '@aipad/contracts';
-import { formatClock } from './tab-strip.js';
 
 export interface SidebarRowVm {
   info: SessionInfo;
@@ -59,42 +58,68 @@ export class Sidebar {
         (row.attention ? ' attention' : '');
       el.dataset['sessionId'] = row.info.id;
 
-      const icon = document.createElement('span');
-      icon.className = 'icon';
-      icon.textContent = SHELL_ICONS[row.info.shell] ?? '??';
-      el.appendChild(icon);
+      // Header row: icon tile + title
+      const head = document.createElement('div');
+      head.className = 'sr-head';
 
-      const content = document.createElement('div');
-      content.style.flex = '1';
+      const iconTile = document.createElement('div');
+      iconTile.className = 'sr-icon';
+      iconTile.textContent = SHELL_ICONS[row.info.shell] ?? '??';
+      const cornerStatus = this.cornerDotClass(row);
+      if (cornerStatus) {
+        const dot = document.createElement('span');
+        dot.className = `sr-icon-dot ${cornerStatus}`;
+        iconTile.appendChild(dot);
+      }
+      head.appendChild(iconTile);
+
       const titleSpan = document.createElement('span');
-      titleSpan.className = 'title-text';
+      titleSpan.className = 'sr-title title-text';
       titleSpan.textContent = row.info.title || row.info.shell;
-      content.appendChild(titleSpan);
+      head.appendChild(titleSpan);
 
-      const meta = document.createElement('span');
-      meta.className = 'meta';
+      el.appendChild(head);
+
+      // cwd line
+      const cwd = document.createElement('div');
+      cwd.className = 'sr-cwd';
+      cwd.textContent = row.info.cwd ?? '';
+      el.appendChild(cwd);
+
+      // pill: status + elapsed (or limited pill if pending resume)
+      const pill = document.createElement('div');
+      pill.className = 'sr-pill';
+      const pillStatus = this.pillStatusClass(row);
+      pill.classList.add(pillStatus);
+
+      const pillDot = document.createElement('span');
+      pillDot.className = 'sr-pill-dot';
+      pill.appendChild(pillDot);
+
+      const pillLabel = document.createElement('span');
+      pillLabel.className = 'sr-pill-label';
+      pillLabel.textContent = this.pillLabel(row);
+      pill.appendChild(pillLabel);
+
       const ageSec = Math.max(0, Math.floor((now - row.statusSinceMs) / 1000));
-      meta.textContent = `${row.info.status} · ${formatAge(ageSec)}`;
-      content.appendChild(meta);
-
-      el.appendChild(content);
+      const pillTime = document.createElement('span');
+      pillTime.className = 'sr-pill-time';
+      pillTime.textContent = `· ${formatAge(ageSec)}`;
+      pill.appendChild(pillTime);
 
       if (row.resumeAt !== null) {
-        const badge = document.createElement('span');
-        badge.className = 'resume-badge';
-        badge.title = 'Auto-resume scheduled';
-        badge.appendChild(document.createTextNode(`⏳ ${formatClock(row.resumeAt)}`));
         const cancel = document.createElement('span');
-        cancel.className = 'resume-cancel';
+        cancel.className = 'sr-pill-cancel resume-cancel';
         cancel.textContent = '×';
         cancel.title = 'Cancel auto-resume';
         cancel.addEventListener('click', (ev) => {
           ev.stopPropagation();
           this.callbacks.onResumeCancel(row.info.id);
         });
-        badge.appendChild(cancel);
-        el.appendChild(badge);
+        pill.appendChild(cancel);
       }
+
+      el.appendChild(pill);
 
       el.addEventListener('click', () => this.callbacks.onRowClick(row.info.id));
       el.addEventListener('contextmenu', (ev) => {
@@ -103,6 +128,29 @@ export class Sidebar {
       });
       this.listEl.appendChild(el);
     }
+  }
+
+  /** 'running' | 'awaiting' | 'limited' | 'idle' for the pill (matches handoff palette). */
+  private pillStatusClass(row: SidebarRowVm): 'running' | 'awaiting' | 'limited' | 'idle' {
+    if (row.resumeAt !== null) return 'limited';
+    if (row.info.status === 'running') return 'running';
+    if (row.info.status === 'awaiting-input') return 'awaiting';
+    return 'idle';
+  }
+
+  /** Corner dot is only rendered for non-idle states (matches handoff). */
+  private cornerDotClass(row: SidebarRowVm): '' | 'running' | 'awaiting' | 'limited' {
+    if (row.resumeAt !== null) return 'limited';
+    if (row.info.status === 'running') return 'running';
+    if (row.info.status === 'awaiting-input') return 'awaiting';
+    return '';
+  }
+
+  private pillLabel(row: SidebarRowVm): string {
+    if (row.resumeAt !== null) return 'rate-limited';
+    if (row.info.status === 'running') return 'running';
+    if (row.info.status === 'awaiting-input') return 'awaiting input';
+    return 'idle';
   }
 
   private showContextMenu(x: number, y: number, sessionId: SessionId): void {
