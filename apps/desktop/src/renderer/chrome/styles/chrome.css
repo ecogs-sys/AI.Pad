@@ -19,46 +19,73 @@ html, body {
 
 /* ── Tab strip ───────────────────────────────────────────────────────────── */
 #tab-strip {
+  height: var(--tabbar-h);
   display: flex;
   align-items: stretch;
   background: var(--bg-1);
   border-bottom: 1px solid var(--border-1);
-  padding: 0 4px;
-  gap: 2px;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
 .tab {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  background: var(--bg-2);
+  gap: 8px;
+  padding: 0 14px;
+  height: var(--tabbar-h);
+  min-width: 160px;
+  max-width: 220px;
+  background: transparent;
+  border-right: 1px solid var(--border-1);
+  font-family: var(--font-mono);
+  font-size: 12px;
   color: var(--text-3);
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
   cursor: pointer;
-  max-width: 240px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.tab.active     { background: var(--bg-0); color: var(--text-1); }
-.tab .dot       { width: 7px; height: 7px; border-radius: 50%; background: transparent; flex-shrink: 0; }
-.tab .dot.running   { background: var(--st-running); }
-.tab .dot.attention { background: var(--st-awaiting); box-shadow: 0 0 0 3px var(--st-awaiting-ring); }
-.tab .dot.exited    { background: var(--st-idle); }
-.tab .close { color: var(--text-3); margin-left: auto; padding: 0 4px; }
-.tab .close:hover { color: var(--text-1); }
-.tab .title { overflow: hidden; text-overflow: ellipsis; }
-.tab .resume-badge { color: var(--st-awaiting); font-size: 10px; margin-left: 4px; white-space: nowrap; }
+.tab.active        { background: var(--bg-0); color: var(--text-1); }
+.tab .tab-stripe   { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
 
+.tab .dot          { width: 7px; height: 7px; border-radius: 50%; background: transparent; flex-shrink: 0; }
+.tab .dot.running  { background: var(--st-running); }
+.tab .dot.awaiting { background: var(--st-awaiting); box-shadow: 0 0 0 3px var(--st-awaiting-ring); }
+.tab .dot.limited  { background: var(--st-limited);  box-shadow: 0 0 0 3px var(--st-limited-ring);  }
+.tab .dot.idle     { background: var(--st-idle); }
+
+.tab .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tab .resume-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--st-awaiting);
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--st-awaiting-bg);
+}
+.tab .resume-badge.limited {
+  color: var(--st-limited);
+  background: var(--st-limited-bg);
+}
+
+.tab .close {
+  width: 14px; height: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-4); font-size: 11px;
+}
+.tab .close:hover { color: var(--text-1); }
+
+#new-tab { width: 36px; padding: 0; background: transparent; color: var(--text-3); cursor: pointer; border: none; font-size: 16px; }
+#new-tab:hover { color: var(--text-1); }
+
+/* Sidebar resume controls (reskinned in Task 4.2) */
 .sidebar-row .resume-badge { display: inline-flex; align-items: center; gap: 3px; color: var(--st-awaiting); font-size: 10px; margin-left: 6px; }
 .sidebar-row .resume-cancel { color: var(--text-3); cursor: pointer; padding: 0 2px; }
 .sidebar-row .resume-cancel:hover { color: var(--text-1); }
-
-#new-tab { padding: 0 12px; background: transparent; color: var(--text-3); cursor: pointer; border: none; font-size: 16px; }
-#new-tab:hover { color: var(--text-1); }
 
 /* ── Body + sidebar ──────────────────────────────────────────────────────── */
 #body {
