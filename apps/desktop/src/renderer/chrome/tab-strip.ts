@@ -31,14 +31,23 @@ export class TabStrip {
       el.className = 'tab' + (tab.info.id === focusedId ? ' active' : '');
       el.dataset['sessionId'] = tab.info.id;
 
+      // Active-tab top stripe — rendered as a pseudo-element via CSS (.tab.active::before)
+      // OR an explicit element. Using an explicit child keeps the CSS simple.
+      if (tab.info.id === focusedId) {
+        const stripe = document.createElement('div');
+        stripe.className = 'tab-stripe';
+        el.appendChild(stripe);
+      }
+
+      // Status dot — color comes from status; resumeAt overrides to 'limited'.
       const dot = document.createElement('span');
-      dot.className = 'dot ' + (tab.attention
-        ? 'attention'
-        : tab.info.status === 'running'
-          ? 'running'
-          : tab.info.status === 'exited'
-            ? 'exited'
-            : '');
+      dot.className = 'dot';
+      const isLimited = tab.resumeAt !== null;
+      if (isLimited) dot.classList.add('limited');
+      else if (tab.attention) dot.classList.add('awaiting');
+      else if (tab.info.status === 'running') dot.classList.add('running');
+      else if (tab.info.status === 'awaiting-input') dot.classList.add('awaiting');
+      else if (tab.info.status === 'exited') dot.classList.add('idle');
       el.appendChild(dot);
 
       const title = document.createElement('span');
@@ -53,7 +62,7 @@ export class TabStrip {
 
       if (tab.resumeAt !== null) {
         const badge = document.createElement('span');
-        badge.className = 'resume-badge';
+        badge.className = 'resume-badge limited';
         badge.textContent = `⏳ ${formatClock(tab.resumeAt)}`;
         badge.title = 'Auto-resume scheduled';
         el.appendChild(badge);
