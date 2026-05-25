@@ -285,11 +285,36 @@ export function showNewSessionDialog(
 
     renderRadios();
 
-    // ── Start button + submit (filled in by 7.4) ────────────────────
+    // ── Start button + submit ───────────────────────────────────────
     const startBtn = root.querySelector<HTMLButtonElement>('#ns-start')!;
     startBtn.disabled = state.cwd.trim().length === 0;
+    startBtn.addEventListener('click', () => { void submit(); });
+
+    let submitting = false;
     async function submit(): Promise<void> {
-      // Filled in by Task 7.4.
+      const cwd = state.cwd.trim();
+      if (cwd.length === 0 || submitting) return;
+      submitting = true;
+      startBtn.disabled = true;
+      try {
+        const resp = await bridge.send(IpcChannel.FsPathExists, { path: cwd });
+        const r = resp as { exists: boolean; isDirectory: boolean };
+        if (!r.exists) {
+          showError('directory not found');
+          return;
+        }
+        if (!r.isDirectory) {
+          showError('not a directory');
+          return;
+        }
+        cleanup({ shell: state.shell, cwd });
+      } catch (err) {
+        console.warn('[new-session] cwd check failed:', err);
+        showError('directory not found');
+      } finally {
+        submitting = false;
+        startBtn.disabled = state.cwd.trim().length === 0;
+      }
     }
 
     // Initial mount: edit state, focused + selected.
