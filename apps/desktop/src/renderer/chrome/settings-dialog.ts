@@ -37,6 +37,11 @@ export function showSettingsDialog(
       <section class="dlg-section">
         <div class="dlg-label">TEXT TO DETECT</div>
         <input id="set-detect" type="text" maxlength="200" class="dlg-input" />
+        <div class="dlg-chips" id="set-detect-chips">
+          <button type="button" class="dlg-chip" data-detect="You've hit your limit">You've hit your limit</button>
+          <button type="button" class="dlg-chip" data-detect="rate limit reached">rate limit reached</button>
+          <button type="button" class="dlg-chip" data-detect="quota exceeded">quota exceeded</button>
+        </div>
       </section>
 
       <section class="dlg-section">
@@ -66,6 +71,14 @@ export function showSettingsDialog(
     setToggle(current.autoResume.enabled);
     toggleEl.addEventListener('click', () => setToggle(!enabledEl.checked));
     root.querySelector<HTMLButtonElement>('#set-close')!.addEventListener('click', () => cleanup(null));
+
+    root.querySelectorAll<HTMLButtonElement>('#set-detect-chips .dlg-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const phrase = chip.dataset['detect'] ?? '';
+        detectEl.value = phrase;
+        detectEl.focus();
+      });
+    });
 
     detectEl.value = current.autoResume.detectText;
     responseEl.value = current.autoResume.responseText;
