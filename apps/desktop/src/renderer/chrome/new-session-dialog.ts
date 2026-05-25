@@ -185,6 +185,106 @@ export function showNewSessionDialog(
       if (ev.target === mount) cleanup(null);
     });
 
+    // ── Shell section ───────────────────────────────────────────────
+    interface ShellOpt { value: Shell; label: string; }
+    function detectShells(): ShellOpt[] {
+      const ua = navigator.userAgent;
+      if (ua.includes('Windows')) return [
+        { value: 'pwsh',     label: 'pwsh.exe' },
+        { value: 'cmd',      label: 'cmd.exe'  },
+        { value: 'git-bash', label: 'git-bash' },
+      ];
+      if (ua.includes('Mac OS')) return [
+        { value: 'zsh',  label: 'zsh'  },
+        { value: 'bash', label: 'bash' },
+      ];
+      return [
+        { value: 'bash', label: 'bash' },
+        { value: 'zsh',  label: 'zsh'  },
+      ];
+    }
+    const shellOpts = detectShells();
+
+    // If defaultShell isn't available on this OS, fall back to the first option.
+    if (!shellOpts.some((o) => o.value === state.shell)) {
+      state.shell = shellOpts[0]!.value;
+    }
+
+    const shellSection = document.createElement('div');
+    shellSection.className = 'aip-modal__section';
+    shellSection.innerHTML = `
+      <div class="aip-label">Shell</div>
+      <div class="aip-radio-row" role="radiogroup" aria-label="Shell"></div>
+    `;
+    body.appendChild(shellSection);
+    const radioRow = shellSection.querySelector<HTMLDivElement>('.aip-radio-row')!;
+
+    function renderRadios(): void {
+      radioRow.replaceChildren();
+      shellOpts.forEach((opt, i) => {
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'aip-radio' + (state.shell === opt.value ? ' aip-radio--active' : '');
+        el.setAttribute('role', 'radio');
+        el.setAttribute('aria-checked', state.shell === opt.value ? 'true' : 'false');
+        // Single tab stop: only the active radio is tabbable.
+        el.tabIndex = state.shell === opt.value ? 0 : -1;
+        el.innerHTML = `<span class="aip-radio__dot"></span><span>${opt.label}</span>`;
+        el.addEventListener('click', () => selectShell(i));
+        el.addEventListener('keydown', (ev) => onRadioKey(ev, i));
+        radioRow.appendChild(el);
+      });
+    }
+
+    function updateRadioStates(): void {
+      const els = radioRow.querySelectorAll<HTMLElement>('.aip-radio');
+      els.forEach((el, i) => {
+        const active = shellOpts[i]!.value === state.shell;
+        el.classList.toggle('aip-radio--active', active);
+        el.setAttribute('aria-checked', active ? 'true' : 'false');
+        el.tabIndex = active ? 0 : -1;
+      });
+    }
+
+    function selectShell(index: number): void {
+      const opt = shellOpts[index];
+      if (!opt) return;
+      state.shell = opt.value;
+      updateRadioStates();
+      const radios = radioRow.querySelectorAll<HTMLElement>('.aip-radio');
+      radios[index]?.focus();
+    }
+
+    function onRadioKey(ev: KeyboardEvent, index: number): void {
+      const last = shellOpts.length - 1;
+      switch (ev.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+          ev.preventDefault();
+          selectShell(index === last ? 0 : index + 1);
+          break;
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          ev.preventDefault();
+          selectShell(index === 0 ? last : index - 1);
+          break;
+        case 'Home':
+          ev.preventDefault();
+          selectShell(0);
+          break;
+        case 'End':
+          ev.preventDefault();
+          selectShell(last);
+          break;
+        case 'Enter':
+          ev.preventDefault();
+          void submit();
+          break;
+      }
+    }
+
+    renderRadios();
+
     // ── Start button + submit (filled in by 7.4) ────────────────────
     const startBtn = root.querySelector<HTMLButtonElement>('#ns-start')!;
     startBtn.disabled = state.cwd.trim().length === 0;

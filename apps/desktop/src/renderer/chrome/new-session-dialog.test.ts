@@ -129,3 +129,68 @@ describe('showNewSessionDialog — Browse button', () => {
     expect(input.value).toBe('/start');
   });
 });
+
+describe('showNewSessionDialog — shell radio row', () => {
+  it('shows pwsh.exe / cmd.exe / git-bash on Windows', () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: '/x' });
+    const labels = [...mount.querySelectorAll('.aip-radio')].map((r) => r.textContent!.trim());
+    expect(labels).toEqual(['pwsh.exe', 'cmd.exe', 'git-bash']);
+  });
+
+  it('shows zsh / bash on macOS', () => {
+    setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)');
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'zsh', defaultCwd: '/x' });
+    const labels = [...mount.querySelectorAll('.aip-radio')].map((r) => r.textContent!.trim());
+    expect(labels).toEqual(['zsh', 'bash']);
+  });
+
+  it('shows bash / zsh on Linux', () => {
+    setUserAgent('Mozilla/5.0 (X11; Linux x86_64)');
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/x' });
+    const labels = [...mount.querySelectorAll('.aip-radio')].map((r) => r.textContent!.trim());
+    expect(labels).toEqual(['bash', 'zsh']);
+  });
+
+  it('marks the default shell active', () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'cmd', defaultCwd: '/x' });
+    const active = mount.querySelector('.aip-radio--active');
+    expect(active?.textContent).toContain('cmd.exe');
+  });
+
+  it('switches active on click', () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: '/x' });
+    const radios = mount.querySelectorAll<HTMLElement>('.aip-radio');
+    radios[2]!.click();   // git-bash
+    expect(radios[0]!.classList.contains('aip-radio--active')).toBe(false);
+    expect(radios[2]!.classList.contains('aip-radio--active')).toBe(true);
+  });
+
+  it('ArrowRight moves selection forward', () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: '/x' });
+    const radios = mount.querySelectorAll<HTMLElement>('.aip-radio');
+    radios[0]!.focus();
+    radios[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(radios[1]!.classList.contains('aip-radio--active')).toBe(true);
+    expect(document.activeElement).toBe(radios[1]);
+  });
+
+  it('ArrowLeft from first wraps to last', () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: '/x' });
+    const radios = mount.querySelectorAll<HTMLElement>('.aip-radio');
+    radios[0]!.focus();
+    radios[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(radios[radios.length - 1]!.classList.contains('aip-radio--active')).toBe(true);
+  });
+});
