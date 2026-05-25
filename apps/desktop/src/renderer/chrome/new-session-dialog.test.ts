@@ -194,3 +194,105 @@ describe('showNewSessionDialog — shell radio row', () => {
     expect(radios[radios.length - 1]!.classList.contains('aip-radio--active')).toBe(true);
   });
 });
+
+describe('showNewSessionDialog — submit', () => {
+  it('resolves with { shell, cwd } when cwd is a real directory', async () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    bridge.send.mockResolvedValueOnce({ exists: true, isDirectory: true });
+
+    const p = showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\Users\\me' });
+    mount.querySelector<HTMLButtonElement>('#ns-start')!.click();
+    const result = await p;
+
+    expect(bridge.send).toHaveBeenCalledWith('core.fs.path-exists', { path: 'C:\\Users\\me' });
+    expect(result).toEqual({ shell: 'pwsh', cwd: 'C:\\Users\\me' });
+  });
+
+  it('stays open and shows "directory not found" when cwd is missing', async () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    bridge.send.mockResolvedValueOnce({ exists: false, isDirectory: false });
+
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\nope' });
+    mount.querySelector<HTMLButtonElement>('#ns-start')!.click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const err = mount.querySelector<HTMLDivElement>('#ns-cwd-error');
+    expect(err?.hidden).toBe(false);
+    expect(err?.textContent).toBe('directory not found');
+    expect(mount.querySelector('.aip-path-input--invalid')).not.toBeNull();
+    // Dialog still mounted.
+    expect(mount.querySelector('.aip-modal--newsession')).not.toBeNull();
+  });
+
+  it('shows "not a directory" when cwd is a file', async () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    bridge.send.mockResolvedValueOnce({ exists: true, isDirectory: false });
+
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\file.txt' });
+    mount.querySelector<HTMLButtonElement>('#ns-start')!.click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mount.querySelector<HTMLDivElement>('#ns-cwd-error')?.textContent).toBe('not a directory');
+  });
+
+  it('clears the error when the user starts editing', async () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    bridge.send.mockResolvedValueOnce({ exists: false, isDirectory: false });
+
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\nope' });
+    mount.querySelector<HTMLButtonElement>('#ns-start')!.click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const input = mount.querySelector<HTMLInputElement>('.aip-path-input__field input')!;
+    input.value = 'C:\\better';
+    input.dispatchEvent(new Event('input'));
+
+    expect(mount.querySelector<HTMLDivElement>('#ns-cwd-error')?.hidden).toBe(true);
+    expect(mount.querySelector('.aip-path-input--invalid')).toBeNull();
+  });
+
+  it('disables Start when cwd is empty', () => {
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: '' });
+    expect(mount.querySelector<HTMLButtonElement>('#ns-start')!.disabled).toBe(true);
+  });
+});
+
+describe('showNewSessionDialog — cancel paths', () => {
+  it('resolves null on Escape', async () => {
+    const mount = mountEl();
+    const p = showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/x' });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await expect(p).resolves.toBeNull();
+    expect(mount.querySelector('.aip-modal--newsession')).toBeNull();
+  });
+
+  it('resolves null on Cancel button', async () => {
+    const mount = mountEl();
+    const p = showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/x' });
+    mount.querySelector<HTMLButtonElement>('#ns-cancel')!.click();
+    await expect(p).resolves.toBeNull();
+  });
+
+  it('resolves null on scrim click', async () => {
+    const mount = mountEl();
+    const p = showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/x' });
+    mount.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await expect(p).resolves.toBeNull();
+  });
+
+  it('resolves null on close ×', async () => {
+    const mount = mountEl();
+    const p = showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/x' });
+    mount.querySelector<HTMLButtonElement>('#ns-close')!.click();
+    await expect(p).resolves.toBeNull();
+  });
+});
