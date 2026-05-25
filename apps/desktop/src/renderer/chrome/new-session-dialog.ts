@@ -1,4 +1,5 @@
 import type { Shell } from '@aipad/contracts';
+import { IpcChannel } from '@aipad/contracts';
 
 export interface NewSessionResult {
   shell: Shell;
@@ -10,9 +11,20 @@ export interface NewSessionDialogOptions {
   defaultCwd: string;
 }
 
+interface Bridge {
+  send: (channel: string, payload?: unknown) => Promise<unknown>;
+}
+
+interface State {
+  shell: Shell;
+  cwd: string;
+  error: string | null;
+}
+
 /**
- * Show a modal dialog and resolve with the user's choice, or null if they cancel.
- * Re-uses a single mount element so opening twice doesn't stack modals.
+ * Show the redesigned New Session dialog. Resolves with the user's choice, or
+ * null if they cancel. Re-uses a single mount element — opening twice doesn't
+ * stack modals.
  */
 export function showNewSessionDialog(
   mount: HTMLElement,
@@ -22,52 +34,33 @@ export function showNewSessionDialog(
     mount.innerHTML = '';
     mount.classList.add('open');
 
+    const state: State = {
+      shell: opts.defaultShell,
+      cwd: opts.defaultCwd,
+      error: null,
+    };
+
     const root = document.createElement('div');
-    root.className = 'dialog dialog-new-session';
+    root.className = 'aip-modal aip-modal--newsession';
     root.innerHTML = `
-      <div class="dlg-titlebar">
-        <div class="dlg-eyebrow">
-          <span class="dlg-eyebrow-label">NEW</span>
-          <span class="dlg-eyebrow-dot"></span>
-          <span class="dlg-eyebrow-title">Session</span>
+      <div class="aip-modal__header">
+        <div class="aip-modal__header-left">
+          <span class="aip-modal__crumb">New session</span>
+          <span class="aip-modal__crumb-dot"></span>
+          <span class="aip-modal__title">Configure</span>
         </div>
-        <button class="dlg-close" id="ns-close" title="Close">×</button>
+        <button class="aip-modal__close" id="ns-close" title="Close" type="button">×</button>
       </div>
-
-      <section class="dlg-section">
-        <div class="dlg-label">SHELL</div>
-        <select id="ns-shell" class="dlg-input">
-          <option value="pwsh">PowerShell 7 (pwsh)</option>
-          <option value="powershell">Windows PowerShell</option>
-          <option value="cmd">Command Prompt</option>
-          <option value="bash">bash</option>
-          <option value="zsh">zsh</option>
-          <option value="wsl">WSL</option>
-        </select>
-      </section>
-
-      <section class="dlg-section">
-        <div class="dlg-label">WORKING DIRECTORY</div>
-        <input id="ns-cwd" type="text" class="dlg-input" />
-      </section>
-
-      <div class="dlg-footer">
-        <button id="ns-cancel" class="dlg-btn">Cancel</button>
-        <button id="ns-open" class="dlg-btn dlg-btn-primary">Open</button>
+      <div class="aip-modal__body"></div>
+      <div class="aip-modal__footer">
+        <div class="aip-modal__footer-hint">Press Enter to start  ·  Esc to cancel</div>
+        <div class="aip-modal__footer-actions">
+          <button class="aip-btn aip-btn--ghost"   id="ns-cancel" type="button">Cancel</button>
+          <button class="aip-btn aip-btn--primary" id="ns-start"  type="button">Start session</button>
+        </div>
       </div>
     `;
     mount.appendChild(root);
-
-    const shellEl = root.querySelector<HTMLSelectElement>('#ns-shell')!;
-    const cwdEl = root.querySelector<HTMLInputElement>('#ns-cwd')!;
-    const openEl = root.querySelector<HTMLButtonElement>('#ns-open')!;
-    const cancelEl = root.querySelector<HTMLButtonElement>('#ns-cancel')!;
-    root.querySelector<HTMLButtonElement>('#ns-close')!.addEventListener('click', () => cleanup(null));
-
-    shellEl.value = opts.defaultShell;
-    cwdEl.value = opts.defaultCwd;
-    cwdEl.focus();
-    cwdEl.select();
 
     const cleanup = (result: NewSessionResult | null): void => {
       mount.classList.remove('open');
@@ -78,25 +71,17 @@ export function showNewSessionDialog(
 
     const onKey = (ev: KeyboardEvent): void => {
       if (ev.key === 'Escape') { ev.preventDefault(); cleanup(null); }
-      else if (ev.key === 'Enter' && (ev.target as HTMLElement).tagName !== 'BUTTON') {
-        ev.preventDefault();
-        submit();
-      }
     };
     document.addEventListener('keydown', onKey);
 
-    function submit(): void {
-      const shell = shellEl.value as Shell;
-      const cwd = cwdEl.value.trim();
-      if (!cwd) return;
-      cleanup({ shell, cwd });
-    }
-
-    openEl.addEventListener('click', submit);
-    cancelEl.addEventListener('click', () => cleanup(null));
+    root.querySelector<HTMLButtonElement>('#ns-close')!.addEventListener('click', () => cleanup(null));
+    root.querySelector<HTMLButtonElement>('#ns-cancel')!.addEventListener('click', () => cleanup(null));
     mount.addEventListener('click', (ev) => {
       if (ev.target === mount) cleanup(null);
     });
+
+    // Subsequent steps (7.2-7.4) wire body content + Start button.
+    void state; void IpcChannel; // suppress unused-warning until later steps fill these in
   });
 }
 
