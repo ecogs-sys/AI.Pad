@@ -11,7 +11,7 @@ export const SessionStatusSchema = z.enum([
 ]);
 export type SessionStatus = z.infer<typeof SessionStatusSchema>;
 
-export const ShellSchema = z.enum(['pwsh', 'powershell', 'cmd', 'bash', 'zsh', 'wsl']);
+export const ShellSchema = z.enum(['pwsh', 'powershell', 'cmd', 'bash', 'zsh', 'wsl', 'git-bash']);
 export type Shell = z.infer<typeof ShellSchema>;
 
 /** Whether a session backs a top-level tab or a pane inside a split tab. The chrome
