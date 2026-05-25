@@ -2,6 +2,8 @@
   "name": "@aipad/desktop",
   "version": "0.3.0",
   "private": true,
+  "license": "MIT",
+  "author": "ecogs",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
