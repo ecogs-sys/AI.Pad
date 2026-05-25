@@ -1,8 +1,13 @@
 import { BrowserWindow, WebContentsView } from 'electron';
 import type { SessionId } from '@aipad/contracts';
 
-const TAB_BAR_PX = 32;       // height of chrome's tab strip
-const SIDEBAR_OPEN_PX = 220; // width of chrome's sidebar when expanded
+// Chrome lays out as a vertical stack: titlebar (32px) above tab strip (36px) above
+// the body. The WebContentsView overlay must start below BOTH, not just the titlebar,
+// or terminal content paints over the tab strip.
+const TITLEBAR_PX = 32;
+const TAB_BAR_PX = 36;
+const CHROME_TOP_PX = TITLEBAR_PX + TAB_BAR_PX; // 68
+const SIDEBAR_OPEN_PX = 260; // matches CSS --sidebar-w
 const SIDEBAR_COLLAPSED_PX = 36;
 
 export interface ViewLoadEntry {
@@ -145,9 +150,9 @@ export class ViewManager {
     const { width, height } = this.parent.getContentBounds();
     view.setBounds({
       x: this.sidebarPx,
-      y: TAB_BAR_PX,
+      y: CHROME_TOP_PX,
       width: Math.max(0, width - this.sidebarPx),
-      height: Math.max(0, height - TAB_BAR_PX),
+      height: Math.max(0, height - CHROME_TOP_PX),
     });
   }
 

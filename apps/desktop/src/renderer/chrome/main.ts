@@ -12,7 +12,10 @@ const bridge = (window as unknown as { aipad: PreloadBridge }).aipad;
 
 const tabStripEl = document.getElementById('tab-strip')!;
 const sidebarListEl = document.getElementById('sidebar-list')!;
+const sidebarOverviewEl = document.getElementById('sidebar-overview');
 const sidebarToggleEl = document.getElementById('sidebar-toggle')!;
+const sidebarNewEl = document.getElementById('sidebar-new');
+const sidebarSortEl = document.getElementById('sidebar-sort');
 const bodyEl = document.getElementById('body')!;
 const titlebarEl = document.getElementById('titlebar')!;
 
@@ -32,7 +35,10 @@ const manager = new LayoutManager({
   }),
   sidebar: new Sidebar({
     listEl: sidebarListEl,
+    overviewEl: sidebarOverviewEl,
     toggleEl: sidebarToggleEl,
+    newEl: sidebarNewEl,
+    sortEl: sidebarSortEl,
     callbacks: {
       onRowClick: (id) => manager.focus(id),
       onToggle: () => manager.toggleSidebar(),
@@ -41,6 +47,7 @@ const manager = new LayoutManager({
       onRestart: (id) => void manager.restartTab(id),
       onClose: (id) => void manager.closeTab(id),
       onResumeCancel: (id) => manager.cancelResume(id),
+      onNewSession: () => void manager.newTab(),
     },
   }),
 });

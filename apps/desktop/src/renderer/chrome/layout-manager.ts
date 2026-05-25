@@ -315,7 +315,7 @@ export class LayoutManager {
     this.state.sidebarOpen = !this.state.sidebarOpen;
     this.bodyEl.classList.toggle('sidebar-collapsed', !this.state.sidebarOpen);
     document.body.classList.toggle('sidebar-collapsed', !this.state.sidebarOpen);
-    const widthPx = this.state.sidebarOpen ? 220 : 36;
+    const widthPx = this.state.sidebarOpen ? 260 : 36;
     void this.bridge.send(IpcChannel.LayoutSetSidebarWidth, { widthPx });
     this.render();
   }

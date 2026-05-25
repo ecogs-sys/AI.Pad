@@ -12,10 +12,18 @@
         <aside id="sidebar">
           <div id="sidebar-header">
             <span id="sidebar-label">Sessions</span>
-            <button id="sidebar-toggle" title="Toggle sidebar (Ctrl+B)">⇔</button>
+            <div id="sidebar-header-actions">
+              <button id="sidebar-sort" class="sb-iconbtn" title="Attention sort">⇅</button>
+              <button id="sidebar-new" class="sb-iconbtn" title="New session (Ctrl+T)">+</button>
+              <button id="sidebar-toggle" class="sb-iconbtn" title="Toggle sidebar (Ctrl+B)">⇔</button>
+            </div>
           </div>
+          <div id="sidebar-overview" hidden></div>
           <div id="sidebar-list"></div>
-          <div id="sidebar-footer"><span id="sidebar-count">0 active</span></div>
+          <div id="sidebar-footer">
+            <span id="sidebar-palette-hint">⌘K  palette</span>
+            <span id="sidebar-count">0 active</span>
+          </div>
         </aside>
         <div id="view-host"><div id="view-anchor"></div></div>
       </div>
