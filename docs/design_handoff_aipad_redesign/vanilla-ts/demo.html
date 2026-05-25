@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI.Pad — vanilla TS/DOM demo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  html, body {
+    margin: 0;
+    background: oklch(0.13 0.008 250);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    overflow: auto;
+    min-height: 100vh;
+  }
+  .page {
+    padding: 24px 32px 48px;
+    max-width: 1640px;
+    margin: 0 auto;
+  }
+  .page h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-1);
+    letter-spacing: -0.2px;
+    margin: 0 0 6px;
+  }
+  .page p {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-3);
+    margin: 0 0 32px;
+  }
+  .screens { display: flex; flex-direction: column; gap: 28px; }
+  .screen {
+    border: 1px solid var(--border-1);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-0);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .screen__caption {
+    padding: 10px 16px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border-1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-3);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .screen__caption strong { color: var(--text-1); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 13px; font-family: var(--font-sans); }
+  .screen__stage {
+    height: 760px;
+    overflow: hidden;
+    background: var(--bg-0);
+    display: flex;
+  }
+  .screen__stage > * { width: 100%; height: 100%; }
+  .icons-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px; background: var(--bg-1); }
+  .icon-card {
+    background: var(--bg-0);
+    border-radius: 8px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .icon-card__big { width: 180px; height: 180px; border-radius: 40px; overflow: hidden;
+                     box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+  .icon-card__row { display: flex; align-items: center; gap: 12px; }
+  .icon-card__sample { border-radius: 6px; overflow: hidden; }
+  .icon-card__sample--32 { width: 32px; height: 32px; border-radius: 7px; }
+  .icon-card__sample--16 { width: 16px; height: 16px; border-radius: 4px; }
+  .icon-card__name { font-size: 13px; color: var(--text-1); font-weight: 500; }
+  .icon-card__note { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+</style>
+</head>
+<body class="aip">
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#1c1f25"/>
+    <rect x="30" y="30" width="40" height="40" rx="9" fill="#2a2f38"/>
+    <circle cx="40" cy="42" r="2.6" fill="#9bc8a3"/>
+    <circle cx="50" cy="42" r="2.6" fill="#7CA8E0"/>
+    <circle cx="60" cy="42" r="2.6" fill="#e0c477"/>
+    <path d="M 39 55 L 46 60 L 39 65" fill="none" stroke="#e8eaee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="48" y="63" width="11" height="2" rx="1" fill="#7CA8E0"/>
+  </svg>
+</template>
+<div class="page">
+  <h1>AI.Pad — vanilla TS/DOM demo</h1>
+  <p>same prototype, no React · all components built with plain <code>document.createElement</code></p>
+
+  <div class="screens" id="screens"></div>
+</div>
+
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" data-presets="typescript" src="bundle.ts"></script>
+<script type="text/babel" data-presets="typescript">
+  // ─────────────────────────────────────────────────────────────────
+  //  All fixture data — sessions, tabs, terminal lines, md files,
+  //  recents — lives in mocks.ts and is bundled with the components.
+  //  See vanilla-ts/mocks.ts in this folder.
+  //
+  //  Everything below is wiring only: which mock goes into which
+  //  screen. Hot-swap the imports for real data when you integrate.
+  // ─────────────────────────────────────────────────────────────────
+
+  // ─── Shell composer ───────────────────────────────────────────────
+  function buildShell(opts) {
+    const { tabs, activeIdx = 0, title = 'AI.Pad', subtitle, children, showTabs = true } = opts;
+    return h('div', { class: 'aip-shell' }, [
+      renderTitleBar({ title, subtitle }),
+      showTabs && tabs ? renderTabBar({ tabs, activeIdx }) : null,
+      h('div', { class: 'aip-shell__body' }, children),
+    ]);
+  }
+
+  // ─── Screen factories ─────────────────────────────────────────────
+  function screenMain() {
+    return buildShell({
+      tabs: TABS_SOLO, subtitle: 'pwsh.exe',
+      children: [
+        renderSidebar({ sessions: SESSIONS_SOLO, activeSessionId: 'a' }),
+        renderTerminalPane({ lines: TERM_DEFAULT }),
+      ],
+    });
+  }
+
+  function screenMulti() {
+    return buildShell({
+      tabs: TABS_MULTI, subtitle: 'claude · refactor — awaiting input',
+      children: [
+        renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
+        renderTerminalPane({ lines: TERM_AWAITING }),
+      ],
+    });
+  }
+
+  function screenSplit() {
+    return buildShell({
+      tabs: TABS_MULTI, subtitle: 'claude + codex · split',
+      children: [
+        renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
+        h('div', { style: 'flex:1;display:flex;min-width:0' }, [
+          renderTerminalPane({ lines: TERM_AWAITING, label: 'claude · refactor' }),
+          h('div', { class: 'aip-split-divider' }),
+          renderTerminalPane({ lines: TERM_LIMITED, label: 'codex · tests' }),
+        ]),
+      ],
+    });
+  }
+
+  function screenEmpty() {
+    return buildShell({
+      showTabs: false, subtitle: 'no active sessions',
+      children: [renderEmptyState({ recents: RECENT_PROJECTS })],
+    });
+  }
+
+  function screenSettings() {
+    return buildShell({
+      tabs: TABS_MULTI, subtitle: 'Settings · Auto-resume',
+      children: [
+        renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
+        renderTerminalPane({ lines: TERM_DEFAULT }),
+        renderScrim(renderSettingsModal({})),
+      ],
+    });
+  }
+
+  function screenPalette() {
+    return buildShell({
+      tabs: TABS_MULTI, subtitle: 'Command palette · ⌘K',
+      children: [
+        renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
+        renderTerminalPane({ lines: TERM_AWAITING }),
+        renderScrim(renderCommandPalette({})),
+      ],
+    });
+  }
+
+  function screenMarkdown() {
+    return buildShell({
+      tabs: TABS_MULTI, subtitle: 'claude · plan · reviewing docs/migration.md',
+      children: [
+        renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
+        renderTerminalPane({ lines: TERM_WITH_MD_LINKS }),
+        renderMdPane({ files: MD_FILES, activePath: 'docs/migration.md' }),
+      ],
+    });
+  }
+
+  function screenNewSession() {
+    return buildShell({
+      tabs: TABS_MULTI, subtitle: 'New session',
+      children: [
+        renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
+        renderTerminalPane({ lines: TERM_DEFAULT }),
+        renderScrim(renderNewSessionDialog({ recentDirs: NEW_SESSION_RECENT_DIRS })),
+      ],
+    });
+  }
+
+  function iconBoard(Icon, name, note) {
+    const big      = h('div', { class: 'icon-card__big' });
+    big.appendChild(Icon());
+    const sample32 = h('div', { class: 'icon-card__sample icon-card__sample--32' });
+    sample32.appendChild(Icon());
+    const sample16 = h('div', { class: 'icon-card__sample icon-card__sample--16' });
+    sample16.appendChild(Icon());
+
+    return h('div', { class: 'icon-card' }, [
+      big,
+      h('div', { class: 'icon-card__row' }, [sample32, sample16,
+        h('div', {}, [
+          h('div', { class: 'icon-card__name', text: name }),
+          h('div', { class: 'icon-card__note', text: note }),
+        ]),
+      ]),
+    ]);
+  }
+
+  // ─── Wire it all up ───────────────────────────────────────────────
+  function caption(label, sub) {
+    return h('div', { class: 'screen__caption' }, [
+      h('strong', { text: label }),
+      h('span', { text: sub }),
+    ]);
+  }
+
+  function section(label, sub, child, height) {
+    const stage = h('div', { class: 'screen__stage' }, [child]);
+    if (height) stage.style.height = height + 'px';
+    return h('div', { class: 'screen' }, [
+      caption(label, sub),
+      stage,
+    ]);
+  }
+
+  const root = document.getElementById('screens');
+  root.appendChild(section('Main · single session', 'one active terminal',   screenMain()));
+  root.appendChild(section('Multi-session', 'attention-sorted sidebar',      screenMulti()));
+  root.appendChild(section('Split panes', 'two terminals, one tab',          screenSplit()));
+  root.appendChild(section('Empty state', 'first launch / no sessions',      screenEmpty()));
+  root.appendChild(section('Settings', 'auto-resume rule modal',             screenSettings()));
+  root.appendChild(section('Command palette', '⌘K quick switcher',           screenPalette()));
+  root.appendChild(section('Markdown preview', 'sliding right pane',         screenMarkdown()));
+  root.appendChild(section('New session', 'configure type · cwd · shell · prompt', screenNewSession(), 980));
+
+  // Icons row
+  const iconsScreen = h('div', { class: 'screen' }, [
+    caption('App icon', '3 directions · stacked sessions recommended'),
+    h('div', { class: 'icons-row' }, [
+      iconBoard(iconA, 'Direction A', 'status row + prompt'),
+      iconBoard(iconB, 'Direction B', 'notepad surface'),
+      iconBoard(iconC, 'Direction C', 'many agents, one pad'),
+    ]),
+  ]);
+  root.appendChild(iconsScreen);
+</script>
+</body>
+</html>
