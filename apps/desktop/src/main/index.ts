@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
@@ -10,6 +10,7 @@ import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
 import { bootstrapSessions } from './session-bootstrap.js';
 import { setupAutoUpdate } from './auto-update.js';
+import { registerFsHandlers } from './fs-handlers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -132,6 +133,9 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0]): 
 
 // IPC: renderer asks for the platform home directory (the chrome cannot read it).
 ipcMain.handle(IpcChannel.LayoutDefaultCwd, (): string => homedir());
+
+// IPC: filesystem helpers used by the New Session dialog (Browse + cwd validation).
+registerFsHandlers(ipcMain, () => chromeWindow, dialog);
 
 // IPC: custom titlebar in the chrome renderer asks main to pop one of the named
 // submenus from app-menu.ts at the given screen coordinates. This lets the in-window
