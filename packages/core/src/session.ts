@@ -23,7 +23,6 @@ export interface SessionEvents {
 const DEFAULT_RING_CAPACITY = 256 * 1024; // ~256 KB ≈ 5,000 lines
 
 function shellCommand(shell: SessionCreateOptions['shell']): string {
-  // Stage 1 uses simple defaults; Plan 3's NewSessionDialog will surface custom paths.
   switch (shell) {
     case 'pwsh': return 'pwsh.exe';
     case 'powershell': return 'powershell.exe';
@@ -31,6 +30,7 @@ function shellCommand(shell: SessionCreateOptions['shell']): string {
     case 'bash': return 'bash';
     case 'zsh': return 'zsh';
     case 'wsl': return 'wsl.exe';
+    case 'git-bash': return 'bash.exe';
   }
 }
 
