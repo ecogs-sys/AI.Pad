@@ -545,3 +545,191 @@ select.dlg-input {
   background-position: right 10px center;
   cursor: pointer;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   New Session dialog — aip-modal--newsession
+   Ported from docs/design_handoff_aipad_redesign/vanilla-ts/components.css
+   Coexists with .dialog/.dlg-* (used by Settings + Rename).
+   ────────────────────────────────────────────────────────────────────── */
+
+.aip-modal {
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+.aip-modal--newsession {
+  width: 620px;
+  max-height: calc(100vh - 80px);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.aip-modal--newsession .aip-modal__body { flex: 1; overflow: auto; }
+.aip-modal--newsession .aip-modal__section { padding: 16px 22px; }
+
+.aip-modal__header {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border-1);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.aip-modal__header-left { display: flex; align-items: center; gap: 10px; }
+.aip-modal__crumb {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+}
+.aip-modal__crumb-dot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--text-4);
+}
+.aip-modal__title { font-size: 13px; color: var(--text-1); }
+.aip-modal__close {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-3); font-size: 14px;
+  cursor: pointer;
+  background: transparent; border: 0;
+  border-radius: 4px;
+}
+.aip-modal__close:hover { background: var(--bg-3); color: var(--text-1); }
+
+.aip-modal__section { padding: 18px 22px; border-bottom: 1px solid var(--border-1); }
+.aip-modal__section:last-of-type { border-bottom: 0; }
+
+.aip-modal__footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--border-1);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.aip-modal__footer-hint {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+.aip-modal__footer-actions { display: flex; gap: 8px; }
+
+.aip-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+
+/* ── Path input (Working directory) ── */
+
+.aip-path-input {
+  display: flex; align-items: stretch;
+  border: 1px solid var(--border-2); border-radius: 6px;
+  background: var(--bg-0); overflow: hidden;
+}
+.aip-path-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.aip-path-input--invalid,
+.aip-path-input--invalid:focus-within {
+  border-color: var(--st-limited);
+  box-shadow: none;
+}
+.aip-path-input__field {
+  flex: 1;
+  padding: 9px 12px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-1);
+  cursor: text;
+  display: flex; align-items: center;
+  min-width: 0;
+}
+.aip-path-input__field .dim { color: var(--text-4); }
+.aip-path-input__field input {
+  width: 100%;
+  background: transparent;
+  border: 0; outline: 0; padding: 0; margin: 0;
+  font-family: inherit; font-size: inherit; color: inherit;
+}
+.aip-path-input__browse {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid var(--border-2);
+  background: var(--bg-1);
+  font-family: var(--font-sans); font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.aip-path-input__browse:hover { background: var(--bg-3); color: var(--text-1); }
+
+.aip-cwd-error {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--st-limited);
+}
+
+/* ── Radio row (Shell) ── */
+
+.aip-radio-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.aip-radio {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--bg-1); border: 1px solid var(--border-1);
+  border-radius: 6px; padding: 7px 12px;
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.aip-radio:hover { background: var(--bg-2); color: var(--text-1); }
+.aip-radio:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--accent);
+}
+.aip-radio--active {
+  background: var(--bg-2); border-color: var(--accent); color: var(--text-1);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.aip-radio__dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 1.5px solid var(--text-4);
+  position: relative; flex-shrink: 0;
+}
+.aip-radio--active .aip-radio__dot { border-color: var(--accent); }
+.aip-radio--active .aip-radio__dot::after {
+  content: ''; position: absolute; inset: 1px;
+  background: var(--accent); border-radius: 50%;
+}
+
+/* ── Footer buttons ── */
+
+.aip-btn {
+  border-radius: 6px; padding: 7px 14px;
+  font-family: var(--font-sans); font-size: 12.5px;
+  cursor: pointer; border: none;
+}
+.aip-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.aip-btn--ghost {
+  background: transparent;
+  color: var(--text-2);
+  border: 1px solid var(--border-2);
+}
+.aip-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-3); color: var(--text-1);
+}
+.aip-btn--primary {
+  background: var(--accent);
+  color: #0d1117;
+  font-weight: 600;
+}
+.aip-btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
