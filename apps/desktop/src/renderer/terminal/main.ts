@@ -1,3 +1,4 @@
+import '../chrome/styles/tokens.css';
 import type { PreloadBridge } from '@aipad/terminal-host';
 import type { SessionId, Shell } from '@aipad/contracts';
 import { IpcChannel } from '@aipad/contracts';

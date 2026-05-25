@@ -11,6 +11,13 @@ html, body {
   user-select: none;
 }
 
+/* ── Scrollbars (uniform thin overlay style, matches design signoff) ───── */
+*::-webkit-scrollbar              { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track        { background: transparent; }
+*::-webkit-scrollbar-thumb        { background: var(--bg-4); border-radius: 2px; }
+*::-webkit-scrollbar-thumb:hover  { background: var(--text-4); }
+*::-webkit-scrollbar-corner       { background: transparent; }
+
 #chrome-root {
   display: grid;
   grid-template-rows: var(--titlebar-h) var(--tabbar-h) 1fr;
