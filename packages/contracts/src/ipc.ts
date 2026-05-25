@@ -28,6 +28,8 @@ export const IpcChannel = {
   LayoutModal: 'core.layout.modal',
   LayoutReorderTabs: 'core.layout.reorder-tabs',
   LayoutDefaultCwd: 'core.layout.default-cwd',
+  FsPickDirectory: 'core.fs.pick-directory',
+  FsPathExists: 'core.fs.path-exists',
   SettingsGet: 'core.settings.get',
   SettingsUpdate: 'core.settings.update',
   ResumeCancel: 'core.resume.cancel',
@@ -104,6 +106,27 @@ export const LayoutModalPayloadSchema = z.object({
 /** Sent after a drag-reorder so main can persist the authoritative tab order. */
 export const LayoutReorderTabsPayloadSchema = z.object({
   order: z.array(SessionIdSchema),
+});
+
+/** Renderer asks main to open a native directory picker. `startPath` (if given) becomes
+ * `defaultPath` on showOpenDialog. Response is the picked path or a cancelled marker. */
+export const FsPickDirectoryPayloadSchema = z.object({
+  startPath: z.string().optional(),
+});
+export const FsPickDirectoryResponseSchema = z.union([
+  z.object({ path: z.string() }),
+  z.object({ cancelled: z.literal(true) }),
+]);
+
+/** Renderer asks main whether a filesystem path exists and is a directory.
+ * On any stat error (ENOENT, EACCES, ENOTDIR) the handler returns
+ * `{ exists: false, isDirectory: false }` — never throws. */
+export const FsPathExistsPayloadSchema = z.object({
+  path: z.string().min(1),
+});
+export const FsPathExistsResponseSchema = z.object({
+  exists: z.boolean(),
+  isDirectory: z.boolean(),
 });
 
 /** Renderer asks main to popup() one of the named submenus from app-menu.ts at the
