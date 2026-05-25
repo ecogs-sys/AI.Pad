@@ -62,6 +62,111 @@ export function showNewSessionDialog(
     `;
     mount.appendChild(root);
 
+    const bridge = (window as unknown as { aipad: Bridge }).aipad;
+    const body = root.querySelector<HTMLDivElement>('.aip-modal__body')!;
+
+    // ── Working directory section ───────────────────────────────────
+    const wdSection = document.createElement('div');
+    wdSection.className = 'aip-modal__section';
+    wdSection.innerHTML = `
+      <div class="aip-label">Working directory</div>
+      <div class="aip-path-input">
+        <div class="aip-path-input__field" id="ns-cwd-field"></div>
+        <button class="aip-path-input__browse" id="ns-browse" type="button">
+          <span>🗁</span><span>Browse…</span>
+        </button>
+      </div>
+      <div class="aip-cwd-error" id="ns-cwd-error" hidden></div>
+    `;
+    body.appendChild(wdSection);
+
+    const pathInput = wdSection.querySelector<HTMLDivElement>('.aip-path-input')!;
+    const pathField = wdSection.querySelector<HTMLDivElement>('#ns-cwd-field')!;
+    const errEl = wdSection.querySelector<HTMLDivElement>('#ns-cwd-error')!;
+
+    function clearError(): void {
+      if (state.error === null) return;
+      state.error = null;
+      pathInput.classList.remove('aip-path-input--invalid');
+      errEl.hidden = true;
+    }
+
+    function showError(msg: string): void {
+      state.error = msg;
+      pathInput.classList.add('aip-path-input--invalid');
+      errEl.textContent = msg;
+      errEl.hidden = false;
+    }
+
+    function splitPath(p: string): { head: string; tail: string } {
+      const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+      if (idx < 0) return { head: '', tail: p };
+      return { head: p.slice(0, idx + 1), tail: p.slice(idx + 1) };
+    }
+
+    function renderDisplay(): void {
+      const { head, tail } = splitPath(state.cwd);
+      pathField.replaceChildren();
+      if (head) {
+        const dim = document.createElement('span');
+        dim.className = 'dim';
+        dim.textContent = head;
+        pathField.appendChild(dim);
+      }
+      pathField.append(tail);
+    }
+
+    function renderEdit(opts: { focus: boolean; select?: boolean }): void {
+      pathField.replaceChildren();
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = state.cwd;
+      input.addEventListener('input', () => {
+        state.cwd = input.value;
+        clearError();
+        startBtn.disabled = state.cwd.trim().length === 0;
+      });
+      input.addEventListener('blur', () => {
+        if (state.cwd.trim().length === 0) {
+          // Stay in edit state if empty — display state of "" is jarring.
+          return;
+        }
+        renderDisplay();
+      });
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          void submit();
+        }
+      });
+      pathField.appendChild(input);
+      if (opts.focus) input.focus();
+      if (opts.select) input.select();
+    }
+
+    pathField.addEventListener('click', (ev) => {
+      // Don't re-mount the input if we clicked inside the existing input.
+      if ((ev.target as HTMLElement).tagName === 'INPUT') return;
+      renderEdit({ focus: true });
+    });
+
+    wdSection.querySelector<HTMLButtonElement>('#ns-browse')!.addEventListener('click', () => {
+      void (async () => {
+        try {
+          const resp = await bridge.send(IpcChannel.FsPickDirectory, { startPath: state.cwd });
+          const r = resp as { path?: string; cancelled?: true };
+          if (r && typeof r.path === 'string') {
+            state.cwd = r.path;
+            clearError();
+            renderEdit({ focus: false });
+            startBtn.disabled = state.cwd.trim().length === 0;
+          }
+        } catch (err) {
+          console.warn('[new-session] Browse failed:', err);
+        }
+      })();
+    });
+
     const cleanup = (result: NewSessionResult | null): void => {
       mount.classList.remove('open');
       mount.innerHTML = '';
@@ -80,8 +185,15 @@ export function showNewSessionDialog(
       if (ev.target === mount) cleanup(null);
     });
 
-    // Subsequent steps (7.2-7.4) wire body content + Start button.
-    void state; void IpcChannel; // suppress unused-warning until later steps fill these in
+    // ── Start button + submit (filled in by 7.4) ────────────────────
+    const startBtn = root.querySelector<HTMLButtonElement>('#ns-start')!;
+    startBtn.disabled = state.cwd.trim().length === 0;
+    async function submit(): Promise<void> {
+      // Filled in by Task 7.4.
+    }
+
+    // Initial mount: edit state, focused + selected.
+    renderEdit({ focus: true, select: true });
   });
 }
 
