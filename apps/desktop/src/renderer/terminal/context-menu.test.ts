@@ -117,8 +117,8 @@ describe('buildTerminalContextMenu()', () => {
     const items = buildTerminalContextMenu(baseOpts);
     const labels = items.filter((i) => i !== null).map((i) => i!.label);
     expect(labels).not.toContain('Find…');
-    expect(labels).not.toContain('Find…');
     expect(labels).not.toContain('Clear');
+    expect(labels.length).toBe(6);
   });
 
   it('disables Copy when hasSelection=false', () => {
