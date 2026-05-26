@@ -165,13 +165,15 @@ describe('buildTerminalContextMenu()', () => {
 });
 
 import { showContextMenu } from './context-menu.js';
-import type { ContextMenuSection } from './context-menu.js';
+import type { ContextMenuItem, ContextMenuSection } from './context-menu.js';
 
 function basicItems(opts: { onA?: () => void; onB?: () => void; disabledA?: boolean } = {}): ContextMenuSection {
-  return [
-    { label: 'A', disabled: opts.disabledA, onClick: opts.onA },
-    { label: 'B', onClick: opts.onB },
-  ];
+  const a: ContextMenuItem = { label: 'A' };
+  if (opts.disabledA !== undefined) a.disabled = opts.disabledA;
+  if (opts.onA) a.onClick = opts.onA;
+  const b: ContextMenuItem = { label: 'B' };
+  if (opts.onB) b.onClick = opts.onB;
+  return [a, b];
 }
 
 describe('showContextMenu() — mounting', () => {
