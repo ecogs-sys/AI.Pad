@@ -1,6 +1,7 @@
 import { TerminalHost, type PreloadBridge } from '@aipad/terminal-host';
 import type { SessionId, Shell } from '@aipad/contracts';
 import { IpcChannel } from '@aipad/contracts';
+import { showContextMenu, buildTerminalContextMenu } from './context-menu.js';
 
 type Orientation = 'horizontal' | 'vertical';
 
@@ -194,7 +195,41 @@ export class SplitContainer {
     el.style.minHeight = '0';
     el.style.height = '100%';
     el.tabIndex = 0;
+    this.wirePaneContextMenu(el);
     return el;
+  }
+
+  /** Right-click on a pane opens the themed context menu. The leaf is resolved
+   * fresh from the DOM element on every event so it remains correct after
+   * splits reshape the tree. */
+  private wirePaneContextMenu(el: HTMLElement): void {
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const leaf = this.findLeafByElement(el);
+      if (!leaf) return;
+      const host = leaf.host;
+      const inSplit = this.root.kind === 'branch';
+
+      showContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        items: buildTerminalContextMenu({
+          hasSelection: host.hasSelection(),
+          inSplit,
+          onCopy: () => {
+            void navigator.clipboard.writeText(host.getSelection());
+          },
+          onPaste: async () => {
+            const text = await navigator.clipboard.readText();
+            host.paste(text);
+          },
+          onSelectAll: () => host.selectAll(),
+          onSplitRight: () => { host.focus(); void this.splitFocused('horizontal'); },
+          onSplitBelow: () => { host.focus(); void this.splitFocused('vertical'); },
+          onClosePane:  () => { host.focus(); this.closeFocusedPane(); },
+        }),
+      });
+    });
   }
 
   private findLeafByElement(el: HTMLElement): LeafNode | null {
