@@ -10,7 +10,7 @@ beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'aipad-store-')); });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 const sample: PersistedTabs = {
-  version: 1,
+  version: 2,
   tabs: [
     { tabId: 't1', shell: 'pwsh', cwd: 'C:\\Users\\me', title: 'First' },
     { tabId: 't2', shell: 'bash', cwd: '/home/me' },
@@ -41,7 +41,7 @@ describe('SessionStore', () => {
   it('overwrites existing file on subsequent save', async () => {
     const store = new SessionStore(dir);
     await store.save(sample);
-    const next: PersistedTabs = { version: 1, tabs: [], focusedTabId: null };
+    const next: PersistedTabs = { version: 2, tabs: [], focusedTabId: null };
     await store.save(next);
     expect(await store.load()).toEqual(next);
   });
@@ -88,7 +88,66 @@ describe('SessionStore', () => {
     await store.save(sample);
     const raw = readFileSync(join(dir, 'sessions.json'), 'utf8');
     const parsed = JSON.parse(raw);
-    expect(parsed.version).toBe(1);
+    expect(parsed.version).toBe(2);
     expect(parsed.tabs).toHaveLength(2);
+  });
+
+  it('migrates a v1 file in memory and writes it back as v2', async () => {
+    const v1Payload = {
+      version: 1,
+      tabs: [{ tabId: 't1', shell: 'pwsh', cwd: 'C:\\Users\\me', title: 'First' }],
+      focusedTabId: 't1',
+    };
+    writeFileSync(join(dir, 'sessions.json'), JSON.stringify(v1Payload));
+    const store = new SessionStore(dir);
+    const loaded = await store.load();
+    expect(loaded?.version).toBe(2);
+    expect(loaded?.tabs[0]?.splits).toBeUndefined();
+  });
+
+  it('round-trips a v2 payload that contains a split tree', async () => {
+    const withSplits: PersistedTabs = {
+      version: 2,
+      tabs: [
+        {
+          tabId: 't1',
+          shell: 'pwsh',
+          cwd: 'C:\\Users\\me',
+          splits: {
+            kind: 'branch',
+            orientation: 'horizontal',
+            ratio: 0.6,
+            a: { kind: 'leaf' },
+            b: {
+              kind: 'branch',
+              orientation: 'vertical',
+              ratio: 0.4,
+              a: { kind: 'leaf' },
+              b: { kind: 'leaf' },
+            },
+          },
+        },
+      ],
+      focusedTabId: 't1',
+    };
+    const store = new SessionStore(dir);
+    await store.save(withSplits);
+    expect(await store.load()).toEqual(withSplits);
+  });
+
+  it('backs up a v2 file whose ratio is out of range', async () => {
+    const bad = {
+      version: 2,
+      tabs: [{
+        tabId: 't1', shell: 'pwsh', cwd: '/x',
+        splits: { kind: 'branch', orientation: 'horizontal', ratio: 1.5, a: { kind: 'leaf' }, b: { kind: 'leaf' } },
+      }],
+      focusedTabId: 't1',
+    };
+    writeFileSync(join(dir, 'sessions.json'), JSON.stringify(bad));
+    const store = new SessionStore(dir);
+    expect(await store.load()).toBeNull();
+    const broken = readdirSync(dir).filter((f) => f.startsWith('sessions.json.broken-'));
+    expect(broken).toHaveLength(1);
   });
 });
