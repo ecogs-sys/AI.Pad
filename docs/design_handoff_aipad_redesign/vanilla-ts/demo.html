@@ -212,6 +212,49 @@
     });
   }
 
+  function screenContextMenu() {
+    // Mock context-menu render in-place (so the screenshot shows it).
+    // In real use, call showContextMenu({...}) on contextmenu event.
+    const menu = h('div', { class: 'aip-ctx-menu',
+                            style: 'position:absolute;top:200px;left:300px' }, [
+      ctxItem('Copy',        'Mod+C',         '⎘'),
+      ctxItem('Paste',       'Mod+V',         '⎙', { disabled: true }),
+      ctxItem('Select all',  'Mod+A'),
+      h('div', { class: 'aip-ctx-menu__sep' }),
+      ctxItem('Find\u2026',  'Mod+F',         '⌕'),
+      ctxItem('Clear',       'Mod+L',         '⌫'),
+      h('div', { class: 'aip-ctx-menu__sep' }),
+      ctxItem('Split right', 'Mod+D',         null, { active: true }),
+      ctxItem('Split below', 'Mod+Shift+D'),
+      h('div', { class: 'aip-ctx-menu__sep' }),
+      ctxItem('Close pane',  'Mod+W',         '×', { danger: true }),
+    ]);
+
+    return buildShell({
+      tabs: TABS_MULTI, subtitle: 'right-click on terminal · context menu',
+      children: [
+        renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
+        h('div', { style: 'flex:1;position:relative;display:flex;flex-direction:column;min-width:0' }, [
+          renderTerminalPane({ lines: TERM_AWAITING }),
+          menu,
+        ]),
+      ],
+    });
+  }
+
+  function ctxItem(label, shortcut, icon, opts) {
+    const o = opts || {};
+    const cls = ['aip-ctx-menu__item'];
+    if (o.disabled) cls.push('aip-ctx-menu__item--disabled');
+    if (o.danger)   cls.push('aip-ctx-menu__item--danger');
+    if (o.active)   cls.push('aip-ctx-menu__item--active');
+    return h('div', { class: cls.join(' ') }, [
+      h('span', { class: 'aip-ctx-menu__icon', text: icon || '' }),
+      h('span', { class: 'aip-ctx-menu__label', text: label }),
+      shortcut ? h('span', { class: 'aip-ctx-menu__kbd', text: kbd(shortcut) }) : null,
+    ]);
+  }
+
   function iconBoard(Icon, name, note) {
     const big      = h('div', { class: 'icon-card__big' });
     big.appendChild(Icon());
@@ -257,6 +300,7 @@
   root.appendChild(section('Command palette', '⌘K quick switcher',           screenPalette()));
   root.appendChild(section('Markdown preview', 'sliding right pane',         screenMarkdown()));
   root.appendChild(section('New session', 'configure type · cwd · shell · prompt', screenNewSession(), 980));
+  root.appendChild(section('Context menu', 'right-click on terminal area',         screenContextMenu()));
 
   // Icons row
   const iconsScreen = h('div', { class: 'screen' }, [
