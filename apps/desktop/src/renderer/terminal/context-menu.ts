@@ -84,29 +84,43 @@ export function showContextMenu({ items, x, y, onClose }: ContextMenuOptions): H
     it.onClick?.();
   }
 
-  function renderItems(): void {
-    let realIdx = 0;
-    setChildren(menu, items.map((it) => {
-      if (it === null) return h('div', { class: 'aip-ctx-menu__sep' });
-      const i = realIdx++;
-      const cls = ['aip-ctx-menu__item'];
-      if (it.disabled)             cls.push('aip-ctx-menu__item--disabled');
-      if (it.danger)               cls.push('aip-ctx-menu__item--danger');
-      if (i === activeIdx && !it.disabled) cls.push('aip-ctx-menu__item--active');
-      return h('div', {
-        class: cls.join(' '),
-        on: {
-          click: () => activate(it),
-          mouseenter: () => { if (!it.disabled) { activeIdx = i; renderItems(); } },
-        },
-      }, [
-        h('span', { class: 'aip-ctx-menu__icon', text: it.icon ?? '' }),
-        h('span', { class: 'aip-ctx-menu__label', text: it.label }),
-        it.shortcut ? h('span', { class: 'aip-ctx-menu__kbd', text: kbd(it.shortcut) }) : null,
-      ]);
-    }));
+  // Item nodes are built ONCE so click handlers stay attached to the same DOM
+  // node across hover/keyboard navigation. The --active class is toggled in
+  // place via updateActiveClass(), not by recreating the children. (Recreating
+  // mid-click — e.g. mouseenter firing between mousedown and mouseup — would
+  // cause the click event to be dropped because mousedown/mouseup landed on
+  // different elements.)
+  const itemNodes: HTMLElement[] = [];
+  let realIdx = 0;
+  setChildren(menu, items.map((it) => {
+    if (it === null) return h('div', { class: 'aip-ctx-menu__sep' });
+    const i = realIdx++;
+    const cls = ['aip-ctx-menu__item'];
+    if (it.disabled) cls.push('aip-ctx-menu__item--disabled');
+    if (it.danger)   cls.push('aip-ctx-menu__item--danger');
+    const node = h('div', {
+      class: cls.join(' '),
+      on: {
+        click: () => activate(it),
+        mouseenter: () => { if (!it.disabled) { activeIdx = i; updateActiveClass(); } },
+      },
+    }, [
+      h('span', { class: 'aip-ctx-menu__icon', text: it.icon ?? '' }),
+      h('span', { class: 'aip-ctx-menu__label', text: it.label }),
+      it.shortcut ? h('span', { class: 'aip-ctx-menu__kbd', text: kbd(it.shortcut) }) : null,
+    ]);
+    itemNodes.push(node);
+    return node;
+  }));
+
+  function updateActiveClass(): void {
+    itemNodes.forEach((node, i) => {
+      const it = realItems[i];
+      const isActive = i === activeIdx && it && !it.disabled;
+      node.classList.toggle('aip-ctx-menu__item--active', isActive);
+    });
   }
-  renderItems();
+  updateActiveClass();
 
   document.body.append(backdrop, menu);
   const rect = menu.getBoundingClientRect();
@@ -135,7 +149,7 @@ export function showContextMenu({ items, x, y, onClose }: ContextMenuOptions): H
       const startPos = pos < 0 ? 0 : pos;
       const next = enabledIndices[(startPos + dir + enabledIndices.length) % enabledIndices.length]!;
       activeIdx = next;
-      renderItems();
+      updateActiveClass();
     }
   }
   window.addEventListener('keydown', onKey, true);
