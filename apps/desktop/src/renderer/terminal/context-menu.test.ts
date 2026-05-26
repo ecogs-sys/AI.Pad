@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { h, setChildren } from './dom.js';
+import { buildTerminalContextMenu } from './context-menu.js';
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -83,5 +84,82 @@ describe('platform.matchShortcut()', () => {
     const { matchShortcut } = await import('./platform.js');
     const ev = new KeyboardEvent('keydown', { key: 'k', shiftKey: true });
     expect(matchShortcut(ev, 'Mod+K')).toBe(false);
+  });
+});
+
+describe('buildTerminalContextMenu()', () => {
+  const baseOpts = {
+    hasSelection: true,
+    inSplit: true,
+    onCopy: () => {},
+    onPaste: () => {},
+    onSelectAll: () => {},
+    onSplitRight: () => {},
+    onSplitBelow: () => {},
+    onClosePane: () => {},
+  };
+
+  it('returns Copy / Paste / Select all + 2 sections of Split + Close pane', () => {
+    const items = buildTerminalContextMenu(baseOpts);
+    // 3 editing + null + 2 split + null + 1 close = 8 entries (2 separators)
+    expect(items.length).toBe(8);
+    expect(items[0]?.label).toBe('Copy');
+    expect(items[1]?.label).toBe('Paste');
+    expect(items[2]?.label).toBe('Select all');
+    expect(items[3]).toBeNull();
+    expect(items[4]?.label).toBe('Split right');
+    expect(items[5]?.label).toBe('Split below');
+    expect(items[6]).toBeNull();
+    expect(items[7]?.label).toBe('Close pane');
+  });
+
+  it('does NOT include Find or Clear items', () => {
+    const items = buildTerminalContextMenu(baseOpts);
+    const labels = items.filter((i) => i !== null).map((i) => i!.label);
+    expect(labels).not.toContain('Find…');
+    expect(labels).not.toContain('Find…');
+    expect(labels).not.toContain('Clear');
+  });
+
+  it('disables Copy when hasSelection=false', () => {
+    const items = buildTerminalContextMenu({ ...baseOpts, hasSelection: false });
+    expect(items[0]?.disabled).toBe(true);
+  });
+
+  it('enables Copy when hasSelection=true', () => {
+    const items = buildTerminalContextMenu({ ...baseOpts, hasSelection: true });
+    expect(items[0]?.disabled).toBeFalsy();
+  });
+
+  it('disables Close pane when inSplit=false', () => {
+    const items = buildTerminalContextMenu({ ...baseOpts, inSplit: false });
+    expect(items[7]?.disabled).toBe(true);
+  });
+
+  it('marks only Close pane as danger', () => {
+    const items = buildTerminalContextMenu(baseOpts);
+    const dangerLabels = items.filter((i) => i !== null && i.danger).map((i) => i!.label);
+    expect(dangerLabels).toEqual(['Close pane']);
+  });
+
+  it('wires each onClick to the matching callback', () => {
+    const calls: string[] = [];
+    const items = buildTerminalContextMenu({
+      hasSelection: true,
+      inSplit: true,
+      onCopy:       () => calls.push('copy'),
+      onPaste:      () => calls.push('paste'),
+      onSelectAll:  () => calls.push('selectAll'),
+      onSplitRight: () => calls.push('splitRight'),
+      onSplitBelow: () => calls.push('splitBelow'),
+      onClosePane:  () => calls.push('closePane'),
+    });
+    items[0]?.onClick?.();
+    items[1]?.onClick?.();
+    items[2]?.onClick?.();
+    items[4]?.onClick?.();
+    items[5]?.onClick?.();
+    items[7]?.onClick?.();
+    expect(calls).toEqual(['copy', 'paste', 'selectAll', 'splitRight', 'splitBelow', 'closePane']);
   });
 });
