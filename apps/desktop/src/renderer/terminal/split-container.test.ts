@@ -39,14 +39,13 @@ function freshBridge(): FakeBridge {
 
 let rootEl: HTMLElement;
 let bridge: FakeBridge;
-let splits: SplitContainer;
 
 beforeEach(() => {
   document.body.innerHTML = '';
   rootEl = document.createElement('div');
   document.body.appendChild(rootEl);
   bridge = freshBridge();
-  splits = new SplitContainer({
+  new SplitContainer({
     rootEl,
     bridge: bridge as unknown as ConstructorParameters<typeof SplitContainer>[0]['bridge'],
     initialSessionId: 'tab-1' as SessionId,
