@@ -1,0 +1,79 @@
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Stub @aipad/terminal-host BEFORE importing SplitContainer so the test
+// doesn't pull in xterm.js (which doesn't run cleanly under jsdom).
+vi.mock('@aipad/terminal-host', () => {
+  class StubTerminalHost {
+    public selection = '';
+    private _hasSel = false;
+    constructor(_opts: unknown) {}
+    setSelectionForTest(text: string): void {
+      this.selection = text;
+      this._hasSel = text.length > 0;
+    }
+    hasSelection(): boolean { return this._hasSel; }
+    getSelection(): string { return this.selection; }
+    paste(_: string): void {}
+    selectAll(): void { this._hasSel = true; }
+    focus(): void {}
+    dispose(): void {}
+  }
+  return { TerminalHost: StubTerminalHost };
+});
+
+import { SplitContainer } from './split-container.js';
+import type { SessionId, Shell } from '@aipad/contracts';
+
+interface FakeBridge {
+  send: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+}
+
+function freshBridge(): FakeBridge {
+  return {
+    send: vi.fn().mockResolvedValue({ id: 'pane-1' }),
+    on: vi.fn().mockReturnValue(() => {}),
+  };
+}
+
+let rootEl: HTMLElement;
+let bridge: FakeBridge;
+let splits: SplitContainer;
+
+beforeEach(() => {
+  document.body.innerHTML = '';
+  rootEl = document.createElement('div');
+  document.body.appendChild(rootEl);
+  bridge = freshBridge();
+  splits = new SplitContainer({
+    rootEl,
+    bridge: bridge as unknown as ConstructorParameters<typeof SplitContainer>[0]['bridge'],
+    initialSessionId: 'tab-1' as SessionId,
+    shell: 'pwsh' as Shell,
+    cwd: '/tmp',
+  });
+});
+
+describe('SplitContainer pane context menu', () => {
+  it('opens the menu on right-click in a pane', () => {
+    const pane = rootEl.firstElementChild as HTMLElement;
+    pane.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }));
+    expect(document.querySelector('.aip-ctx-menu')).not.toBeNull();
+  });
+
+  it('disables Close pane in a single-leaf tree', () => {
+    const pane = rootEl.firstElementChild as HTMLElement;
+    pane.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }));
+    const items = document.querySelectorAll('.aip-ctx-menu__item');
+    const closeItem = Array.from(items).find((i) => i.textContent?.includes('Close pane'));
+    expect(closeItem?.classList.contains('aip-ctx-menu__item--disabled')).toBe(true);
+  });
+
+  it('prevents the browser default context menu', () => {
+    const pane = rootEl.firstElementChild as HTMLElement;
+    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
+    pane.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+});
