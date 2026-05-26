@@ -25,10 +25,11 @@ design_handoff_aipad_redesign/
     ├── terminal.ts                    ← TerminalPane + Line model
     ├── panels.ts                      ← modals · palette · empty · md pane
     │                                    · new session dialog · scrim
+    ├── context-menu.ts                ← showContextMenu + builders
     └── mocks.ts                       ← all sample data for the demo
 ```
 
-**Before reading code:** open `AI.Pad Redesign (standalone).html` — single self-contained file that works offline. All eight screens + the three icon directions in one scrolling page.
+**Before reading code:** open `AI.Pad Redesign (standalone).html` — single self-contained file that works offline. All nine screens + the three icon directions in one scrolling page.
 
 **For implementation:** read this README for the spec, then the `vanilla-ts/` folder. Everything in there is plain TypeScript + DOM, no React. The component shapes are recommendations — adapt them to whatever module patterns the AI.Pad codebase already uses.
 
@@ -58,7 +59,7 @@ The README in `vanilla-ts/` covers this in detail.
 
 ## Screens
 
-There are eight screens, plus three app-icon directions. Numbered in the order they appear on the preview page.
+There are nine screens, plus three app-icon directions. Numbered in the order they appear on the preview page.
 
 ### 1. Main · single session
 **Purpose:** baseline state with one active session.
@@ -175,6 +176,50 @@ interface NewSessionState {
 - Agent binary not found on PATH → start the shell anyway, surface the error in the terminal pane on the next line so the user sees it and can install/fix.
 - User picks `Split below` with no active tab → fallback to `New tab`; show the choice flip in the footer as a subtle hint instead of erroring.
 
+### 9. Context menu (new)
+**Purpose:** right-click anywhere in the terminal area (or on a tab / session row / `.md` link) opens a context menu with the standard editing actions and pane-management commands. Replaces the OS-native menu so the look and feel matches the rest of the dark UI.
+
+**Layout.** Floating menu, min-width 220px, anchored at the click position. Auto-flips to the left or up if the click is near a viewport edge. Background `var(--bg-2)`, 1px `var(--border-2)`, 8px radius, drop shadow.
+
+**Sections (top → bottom, separated by 1px `var(--border-1)` dividers):**
+
+```
+Copy            ⌘C          (disabled when nothing selected)
+Paste           ⌘V          (disabled when clipboard empty)
+Select all      ⌘A
+────────────────────────────────
+Find…           ⌘F
+Clear           ⌘L
+────────────────────────────────
+Split right     ⌘D
+Split below     ⌘⇧D
+────────────────────────────────
+Close pane      ⌘W          (red, danger style; disabled when not in split)
+```
+
+**Per-item structure:**
+- 14px wide icon column (optional, mono glyph in `var(--text-3)`)
+- label in 13px Inter `var(--text-1)`
+- right-aligned shortcut in mono 10.5px `var(--text-3)` (auto-translated via `kbd()` — `⌘C` on macOS, `Ctrl+C` on Win/Linux)
+- 5px radius hover background (`var(--bg-3)`), accent-soft background when keyboard-active
+
+**Behavior:**
+- Right-click in the terminal pane (or on the listed surfaces) opens the menu at `(e.clientX, e.clientY)`. Other open menus dismiss first.
+- Invisible full-viewport backdrop layer catches outside clicks to dismiss.
+- `Esc` dismisses. Arrow keys (`↑` `↓`) navigate between enabled items; `Enter` activates the active item. Mouse-over also moves the keyboard cursor.
+- Item activation calls `onClick()` then closes the menu. Disabled items are skipped during keyboard nav and don't fire `onClick`.
+- Auto-flip: if the menu would extend past the right edge of the viewport, anchor it to the right of the click instead. Same for the bottom edge.
+
+**Other surfaces that share the same menu component:**
+- **Tab right-click** — Rename… (F2), Duplicate (Mod+Shift+D), Move to new window, separator, Close other tabs, Close (Mod+W, danger).
+- **Session row right-click** — same as tab.
+- **`.md` link right-click** (in terminal) — Open in editor (Mod+Enter), Copy path, Reveal in file manager.
+
+**Production notes:**
+- In Electron you could use the native `Menu.popup()` API but you lose theming. We use a custom HTML menu because matching the rest of the UI matters more than native consistency in a dark developer tool.
+- Per-session "Copy" must read the actual terminal selection from xterm.js (`term.getSelection()`). Disable the item when the selection is empty (subscribe to xterm's `onSelectionChange`).
+- "Paste" should use `navigator.clipboard.readText()` (requires user gesture which the right-click provides). Disable the item when the clipboard is empty — but check this asynchronously and rebuild the menu when the API resolves, since clipboard access can be slow.
+
 ---
 
 ## Component spec
@@ -228,7 +273,9 @@ All use mono. Default is **pill**. The `status-badge.ts` file in `vanilla-ts/` s
 | Tab | Middle-click or `×` | Close tab with confirm if status is `running` or `awaiting`. |
 | Tab `+` | Click | Open New Session dialog (see section 8). |
 | Session row | Click | Activate that tab (rows mirror tabs 1:1). |
-| Session row | Right-click | Context menu: Rename, Duplicate, Move to new window, Close. |
+| Session row | Right-click | Context menu: Rename, Duplicate, Move to new window, separator, Close. |
+| Tab | Right-click | Context menu: same set as session row. |
+| Terminal pane | Right-click | Context menu: Copy / Paste / Select all / Find / Clear / Split / Close pane (see section 9). |
 | Status overview cell | Click | Filter sidebar to that status; click again to clear. |
 | Command palette | `Mod+K` | Open palette. `↑↓` navigates, `↵` opens, `Esc` closes. |
 | Settings input chips | Click | Replace the input value with the chip's text. |

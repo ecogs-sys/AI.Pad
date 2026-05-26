@@ -1,14 +1,10 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
+<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>AI.Pad — Redesign · standalone preview</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* ─── tokens.css ─────────────────────────────────────────────────── */
 /* ═══════════════════════════════════════════════════════════════════════
    AI.Pad — design tokens
    Paste-ready CSS custom properties. Drop into your renderer's root
@@ -100,7 +96,6 @@
 .aip-titlebar .menu-item,
 .aip-no-drag        { -webkit-app-region: no-drag; }
 
-/* ─── components.css ─────────────────────────────────────────────── */
 /* ═══════════════════════════════════════════════════════════════════════
    AI.Pad — component styles (vanilla)
    Companion to tokens.css. All structural styling lives here so the TS
@@ -840,7 +835,91 @@
 .aip-mdpane__footer-hints { display: flex; gap: 12px; }
 .aip-mdpane__footer-hints span span { color: var(--text-3); }
 
-/* ── Animations ─────────────────────────────────────────────────── */
+/* ── Context menu (right-click) ─────────────────────────────────── */
+.aip-ctx-menu {
+  position: fixed;
+  min-width: 220px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  z-index: 1000;
+  user-select: none;
+  /* No opacity animation — html-to-image based screenshot tools freeze
+     the entrance midway. Keep the menu solid; we use the subtle drop-in
+     only as a polish touch via transform. */
+  animation: aip-ctx-in 100ms ease-out;
+}
+@keyframes aip-ctx-in {
+  from { transform: translateY(-3px); }
+  to   { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aip-ctx-menu { animation: none; }
+}
+
+.aip-ctx-menu__sep {
+  height: 1px;
+  background: var(--border-1);
+  margin: 4px 0;
+}
+
+.aip-ctx-menu__item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  color: var(--text-1);
+  font-family: var(--font-sans); font-size: 13px;
+  cursor: pointer;
+}
+.aip-ctx-menu__item:hover:not(.aip-ctx-menu__item--disabled) {
+  background: var(--bg-3);
+}
+.aip-ctx-menu__item--active:not(.aip-ctx-menu__item--disabled) {
+  background: var(--accent-soft);
+  color: var(--text-1);
+}
+.aip-ctx-menu__item--active:not(.aip-ctx-menu__item--disabled) .aip-ctx-menu__kbd {
+  color: var(--text-2);
+}
+.aip-ctx-menu__item--disabled {
+  color: var(--text-4);
+  cursor: default;
+}
+.aip-ctx-menu__item--disabled .aip-ctx-menu__kbd {
+  color: var(--text-4);
+}
+.aip-ctx-menu__item--danger { color: var(--st-limited); }
+.aip-ctx-menu__item--danger:hover { background: oklch(0.70 0.18 25 / 0.12); }
+
+.aip-ctx-menu__icon {
+  width: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.aip-ctx-menu__item--danger .aip-ctx-menu__icon { color: var(--st-limited); }
+
+.aip-ctx-menu__label { flex: 1; }
+.aip-ctx-menu__kbd {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--text-3);
+  letter-spacing: 0.2px;
+}
+
+.aip-ctx-menu__item-submenu::after {
+  content: '›';
+  font-size: 14px;
+  color: var(--text-3);
+  margin-left: -4px;
+}
+
+/* Backdrop catcher — invisible full-screen layer to close menu on outside click */
+.aip-ctx-backdrop {
+  position: fixed; inset: 0; z-index: 999;
+}
 @keyframes aip-blink {
   0%, 49%  { opacity: 1; }
   50%,100% { opacity: 0; }
@@ -851,11 +930,8 @@
   animation: aip-blink 1.05s steps(1) infinite;
 }
 
-/* ─── page chrome (demo only) ───────────────────────────────────── */
-html, body {
-  margin: 0; background: oklch(0.13 0.008 250); color: var(--text-1);
-  font-family: var(--font-sans); overflow: auto; min-height: 100vh;
-}
+html, body { margin: 0; background: oklch(0.13 0.008 250); color: var(--text-1);
+              font-family: var(--font-sans); overflow: auto; min-height: 100vh; }
 .page { padding: 24px 32px 48px; max-width: 1640px; margin: 0 auto; }
 .page h1 { font-size: 16px; font-weight: 600; color: var(--text-1); letter-spacing: -0.2px; margin: 0 0 6px; }
 .page p  { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin: 0 0 32px; }
@@ -867,7 +943,7 @@ html, body {
                     font-size: 11px; color: var(--text-3); letter-spacing: 0.4px; text-transform: uppercase; }
 .screen__caption strong { color: var(--text-1); font-weight: 600; text-transform: none;
                            letter-spacing: 0; font-size: 13px; font-family: var(--font-sans); }
-.screen__stage { height: 760px; overflow: hidden; background: var(--bg-0); display: flex; }
+.screen__stage { height: 760px; overflow: hidden; background: var(--bg-0); display: flex; position: relative; }
 .screen__stage > * { width: 100%; height: 100%; }
 .icons-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px; background: var(--bg-1); }
 .icon-card { background: var(--bg-0); border-radius: 8px; padding: 24px;
@@ -880,18 +956,14 @@ html, body {
 .icon-card__sample--16 { width: 16px; height: 16px; border-radius: 4px; }
 .icon-card__name { font-size: 13px; color: var(--text-1); font-weight: 500; }
 .icon-card__note { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
-</style>
-</head>
+</style></head>
 <body class="aip">
 <div class="page">
   <h1>AI.Pad — Redesign</h1>
-  <p>standalone preview · 8 screens + 3 app icon directions · no react, no build, fully self-contained</p>
+  <p>standalone preview · 9 screens + 3 app icon directions · no react, no build</p>
   <div class="screens" id="screens"></div>
 </div>
-
-<script>
-// AI.Pad components — pre-stripped from TypeScript by Babel
-// ════════════════════════════════════════════════════════════════════════
+<script>// ════════════════════════════════════════════════════════════════════════
 //  AI.Pad — bundled vanilla TS (demo loader) — GENERATED FILE
 // ════════════════════════════════════════════════════════════════════════
 
@@ -2668,6 +2740,215 @@ function renderSampleMdBody() {
   })]);
 }
 
+// ── context-menu.ts ───────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// AI.Pad — Context menu (right-click)
+//
+// Generic component used for:
+//   • terminal area: copy / paste / select-all / find / clear / split / close
+//   • tab right-click: rename / duplicate / move to new window / close
+//   • session row right-click: same as tab
+//   • md pane link right-click: copy path / open in editor / reveal in finder
+//
+// Mount one menu at a time; clicking outside or pressing Esc dismisses it.
+// ═══════════════════════════════════════════════════════════════════════
+
+/** Pass a `null` between items to insert a separator line. */
+
+/**
+ * Render a context menu and mount it to `document.body`. Returns the menu
+ * element; the caller can keep a handle but typically just relies on the
+ * auto-dismiss behavior.
+ *
+ * Auto-handles:
+ *   • outside-click dismissal (via an invisible backdrop layer)
+ *   • Esc dismissal
+ *   • arrow-key navigation between enabled items
+ *   • viewport flipping if click is near the edge
+ *
+ * Production note: in Electron, you can also use the native Menu API
+ * (electron.Menu.buildFromTemplate) for a more native feel — but you lose
+ * theming. We use a custom menu because matching the rest of the dark UI
+ * is more important than native consistency in a developer tool.
+ */
+function showContextMenu({
+  items,
+  x,
+  y,
+  onClose
+}) {
+  // Filter to keep nulls (separators) but track real items for keyboard nav
+  const realItems = items.filter(i => i !== null);
+  const enabledIndices = [];
+  realItems.forEach((it, i) => {
+    if (!it.disabled) enabledIndices.push(i);
+  });
+  let activeIdx = enabledIndices[0] ?? 0;
+  const backdrop = h('div', {
+    class: 'aip-ctx-backdrop'
+  });
+  const menu = h('div', {
+    class: 'aip-ctx-menu'
+  });
+  function close() {
+    backdrop.remove();
+    menu.remove();
+    window.removeEventListener('keydown', onKey, true);
+    onClose?.();
+  }
+  function activate(it) {
+    if (it.disabled) return;
+    close();
+    it.onClick?.();
+  }
+  function renderItems() {
+    let realIdx = 0;
+    setChildren(menu, items.map(it => {
+      if (it === null) return h('div', {
+        class: 'aip-ctx-menu__sep'
+      });
+      const i = realIdx++;
+      const cls = ['aip-ctx-menu__item'];
+      if (it.disabled) cls.push('aip-ctx-menu__item--disabled');
+      if (it.danger) cls.push('aip-ctx-menu__item--danger');
+      if (i === activeIdx && !it.disabled) cls.push('aip-ctx-menu__item--active');
+      return h('div', {
+        class: cls.join(' '),
+        on: {
+          click: () => activate(it),
+          mouseenter: () => {
+            if (!it.disabled) {
+              activeIdx = i;
+              renderItems();
+            }
+          }
+        }
+      }, [h('span', {
+        class: 'aip-ctx-menu__icon',
+        text: it.icon ?? ''
+      }), h('span', {
+        class: 'aip-ctx-menu__label',
+        text: it.label
+      }), it.shortcut ? h('span', {
+        class: 'aip-ctx-menu__kbd',
+        text: kbd(it.shortcut)
+      }) : null]);
+    }));
+  }
+  renderItems();
+
+  // Position — measure after mount so we can flip if needed.
+  document.body.append(backdrop, menu);
+  const rect = menu.getBoundingClientRect();
+  const vw = window.innerWidth,
+    vh = window.innerHeight;
+  const px = x + rect.width > vw - 8 ? Math.max(8, x - rect.width) : x;
+  const py = y + rect.height > vh - 8 ? Math.max(8, y - rect.height) : y;
+  menu.style.left = px + 'px';
+  menu.style.top = py + 'px';
+
+  // Outside click closes.
+  backdrop.addEventListener('mousedown', close);
+  backdrop.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    close();
+  });
+
+  // Keyboard.
+  function onKey(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      activate(realItems[activeIdx]);
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const dir = e.key === 'ArrowDown' ? 1 : -1;
+      const pos = enabledIndices.indexOf(activeIdx);
+      const next = enabledIndices[(pos + dir + enabledIndices.length) % enabledIndices.length];
+      activeIdx = next;
+      renderItems();
+    }
+  }
+  window.addEventListener('keydown', onKey, true);
+  return menu;
+}
+
+// ─── Pre-built menu builders ────────────────────────────────────────
+// These match the design spec. Wire your real callbacks in production.
+
+function buildTerminalContextMenu(opts) {
+  return [{
+    label: 'Copy',
+    shortcut: 'Mod+C',
+    icon: '⎘',
+    disabled: !opts.hasSelection,
+    onClick: opts.onCopy
+  }, {
+    label: 'Paste',
+    shortcut: 'Mod+V',
+    icon: '⎙',
+    disabled: !opts.hasClipboard,
+    onClick: opts.onPaste
+  }, {
+    label: 'Select all',
+    shortcut: 'Mod+A',
+    onClick: opts.onSelectAll
+  }, null, {
+    label: 'Find\u2026',
+    shortcut: 'Mod+F',
+    icon: '⌕',
+    onClick: opts.onFind
+  }, {
+    label: 'Clear',
+    shortcut: 'Mod+L',
+    icon: '⌫',
+    onClick: opts.onClear
+  }, null, {
+    label: 'Split right',
+    shortcut: 'Mod+D',
+    onClick: opts.onSplitRight
+  }, {
+    label: 'Split below',
+    shortcut: 'Mod+Shift+D',
+    onClick: opts.onSplitBelow
+  }, null, {
+    label: 'Close pane',
+    shortcut: 'Mod+W',
+    icon: '×',
+    danger: true,
+    onClick: opts.onClosePane,
+    disabled: !opts.inSplit
+  }];
+}
+function buildTabContextMenu(opts) {
+  return [{
+    label: 'Rename\u2026',
+    shortcut: 'F2',
+    onClick: opts.onRename
+  }, {
+    label: 'Duplicate',
+    shortcut: 'Mod+Shift+D',
+    onClick: opts.onDuplicate
+  }, {
+    label: 'Move to new window',
+    onClick: opts.onMoveToNewWindow
+  }, null, {
+    label: 'Close other tabs',
+    onClick: opts.onCloseOthers
+  }, {
+    label: 'Close',
+    shortcut: 'Mod+W',
+    danger: true,
+    onClick: opts.onClose
+  }];
+}
+
 // ── mocks.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
 // AI.Pad — sample data (mocks)
@@ -2992,12 +3273,8 @@ const TERM_WITH_MD_LINKS = [{
 }, {
   kind: 'cursor',
   prefix: '› '
-}];
-</script>
-
-<script>
-// Demo wiring
-// ─────────────────────────────────────────────────────────────────
+}];</script>
+<script>// ─────────────────────────────────────────────────────────────────
 //  All fixture data — sessions, tabs, terminal lines, md files,
 //  recents — lives in mocks.ts and is bundled with the components.
 //  See vanilla-ts/mocks.ts in this folder.
@@ -3136,6 +3413,57 @@ function screenNewSession() {
     }))]
   });
 }
+function screenContextMenu() {
+  // Mock context-menu render in-place (so the screenshot shows it).
+  // In real use, call showContextMenu({...}) on contextmenu event.
+  const menu = h('div', {
+    class: 'aip-ctx-menu',
+    style: 'position:absolute;top:200px;left:300px'
+  }, [ctxItem('Copy', 'Mod+C', '⎘'), ctxItem('Paste', 'Mod+V', '⎙', {
+    disabled: true
+  }), ctxItem('Select all', 'Mod+A'), h('div', {
+    class: 'aip-ctx-menu__sep'
+  }), ctxItem('Find\u2026', 'Mod+F', '⌕'), ctxItem('Clear', 'Mod+L', '⌫'), h('div', {
+    class: 'aip-ctx-menu__sep'
+  }), ctxItem('Split right', 'Mod+D', null, {
+    active: true
+  }), ctxItem('Split below', 'Mod+Shift+D'), h('div', {
+    class: 'aip-ctx-menu__sep'
+  }), ctxItem('Close pane', 'Mod+W', '×', {
+    danger: true
+  })]);
+  return buildShell({
+    tabs: TABS_MULTI,
+    subtitle: 'right-click on terminal · context menu',
+    children: [renderSidebar({
+      sessions: SESSIONS_MULTI,
+      activeSessionId: 'a'
+    }), h('div', {
+      style: 'flex:1;position:relative;display:flex;flex-direction:column;min-width:0'
+    }, [renderTerminalPane({
+      lines: TERM_AWAITING
+    }), menu])]
+  });
+}
+function ctxItem(label, shortcut, icon, opts) {
+  const o = opts || {};
+  const cls = ['aip-ctx-menu__item'];
+  if (o.disabled) cls.push('aip-ctx-menu__item--disabled');
+  if (o.danger) cls.push('aip-ctx-menu__item--danger');
+  if (o.active) cls.push('aip-ctx-menu__item--active');
+  return h('div', {
+    class: cls.join(' ')
+  }, [h('span', {
+    class: 'aip-ctx-menu__icon',
+    text: icon || ''
+  }), h('span', {
+    class: 'aip-ctx-menu__label',
+    text: label
+  }), shortcut ? h('span', {
+    class: 'aip-ctx-menu__kbd',
+    text: kbd(shortcut)
+  }) : null]);
+}
 function iconBoard(Icon, name, note) {
   const big = h('div', {
     class: 'icon-card__big'
@@ -3190,6 +3518,7 @@ root.appendChild(section('Settings', 'auto-resume rule modal', screenSettings())
 root.appendChild(section('Command palette', '⌘K quick switcher', screenPalette()));
 root.appendChild(section('Markdown preview', 'sliding right pane', screenMarkdown()));
 root.appendChild(section('New session', 'configure type · cwd · shell · prompt', screenNewSession(), 980));
+root.appendChild(section('Context menu', 'right-click on terminal area', screenContextMenu()));
 
 // Icons row
 const iconsScreen = h('div', {
@@ -3197,7 +3526,5 @@ const iconsScreen = h('div', {
 }, [caption('App icon', '3 directions · stacked sessions recommended'), h('div', {
   class: 'icons-row'
 }, [iconBoard(iconA, 'Direction A', 'status row + prompt'), iconBoard(iconB, 'Direction B', 'notepad surface'), iconBoard(iconC, 'Direction C', 'many agents, one pad')])]);
-root.appendChild(iconsScreen);
-</script>
-</body>
-</html>
+root.appendChild(iconsScreen);</script>
+</body></html>
