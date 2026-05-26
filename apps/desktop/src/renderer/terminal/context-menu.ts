@@ -3,6 +3,9 @@
 // Ported from docs/design_handoff_aipad_redesign/vanilla-ts/context-menu.ts
 // with Find and Clear items removed per the 2026-05-26 spec.
 
+import { h, setChildren } from './dom.js';
+import { kbd } from './platform.js';
+
 export interface ContextMenuItem {
   label: string;
   shortcut?: string;
@@ -41,4 +44,101 @@ export function buildTerminalContextMenu(opts: TerminalMenuOptions): ContextMenu
     { label: 'Close pane',  shortcut: 'Mod+W', icon: '×', danger: true, onClick: opts.onClosePane,
       disabled: !opts.inSplit },
   ];
+}
+
+export interface ContextMenuOptions {
+  items: ContextMenuSection;
+  /** Pixel coords of the click. Auto-flipped if it would go off-screen. */
+  x: number;
+  y: number;
+  /** Called when the menu dismisses (outside click, Esc, item activation). */
+  onClose?: () => void;
+}
+
+/**
+ * Render a context menu and mount it to `document.body`. Auto-handles:
+ *   • outside-click dismissal (via an invisible backdrop layer)
+ *   • Esc dismissal
+ *   • arrow-key navigation between enabled items
+ *   • viewport flipping if click is near the edge
+ */
+export function showContextMenu({ items, x, y, onClose }: ContextMenuOptions): HTMLElement {
+  const realItems = items.filter((i): i is ContextMenuItem => i !== null);
+  const enabledIndices: number[] = [];
+  realItems.forEach((it, i) => { if (!it.disabled) enabledIndices.push(i); });
+  let activeIdx = enabledIndices[0] ?? 0;
+
+  const backdrop = h('div', { class: 'aip-ctx-backdrop' });
+  const menu = h('div', { class: 'aip-ctx-menu' });
+
+  function close(): void {
+    backdrop.remove();
+    menu.remove();
+    window.removeEventListener('keydown', onKey, true);
+    onClose?.();
+  }
+
+  function activate(it: ContextMenuItem): void {
+    if (it.disabled) return;
+    close();
+    it.onClick?.();
+  }
+
+  function renderItems(): void {
+    let realIdx = 0;
+    setChildren(menu, items.map((it) => {
+      if (it === null) return h('div', { class: 'aip-ctx-menu__sep' });
+      const i = realIdx++;
+      const cls = ['aip-ctx-menu__item'];
+      if (it.disabled)             cls.push('aip-ctx-menu__item--disabled');
+      if (it.danger)               cls.push('aip-ctx-menu__item--danger');
+      if (i === activeIdx && !it.disabled) cls.push('aip-ctx-menu__item--active');
+      return h('div', {
+        class: cls.join(' '),
+        on: {
+          click: () => activate(it),
+          mouseenter: () => { if (!it.disabled) { activeIdx = i; renderItems(); } },
+        },
+      }, [
+        h('span', { class: 'aip-ctx-menu__icon', text: it.icon ?? '' }),
+        h('span', { class: 'aip-ctx-menu__label', text: it.label }),
+        it.shortcut ? h('span', { class: 'aip-ctx-menu__kbd', text: kbd(it.shortcut) }) : null,
+      ]);
+    }));
+  }
+  renderItems();
+
+  document.body.append(backdrop, menu);
+  const rect = menu.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const px = (x + rect.width  > vw - 8) ? Math.max(8, x - rect.width)  : x;
+  const py = (y + rect.height > vh - 8) ? Math.max(8, y - rect.height) : y;
+  menu.style.left = px + 'px';
+  menu.style.top  = py + 'px';
+
+  backdrop.addEventListener('mousedown', close);
+  backdrop.addEventListener('contextmenu', (e) => { e.preventDefault(); close(); });
+
+  function onKey(e: KeyboardEvent): void {
+    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key === 'Enter')  {
+      e.preventDefault();
+      const item = realItems[activeIdx];
+      if (item) activate(item);
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (enabledIndices.length === 0) return;
+      const dir = e.key === 'ArrowDown' ? 1 : -1;
+      const pos = enabledIndices.indexOf(activeIdx);
+      const startPos = pos < 0 ? 0 : pos;
+      const next = enabledIndices[(startPos + dir + enabledIndices.length) % enabledIndices.length]!;
+      activeIdx = next;
+      renderItems();
+    }
+  }
+  window.addEventListener('keydown', onKey, true);
+
+  return menu;
 }

@@ -163,3 +163,145 @@ describe('buildTerminalContextMenu()', () => {
     expect(calls).toEqual(['copy', 'paste', 'selectAll', 'splitRight', 'splitBelow', 'closePane']);
   });
 });
+
+import { showContextMenu } from './context-menu.js';
+import type { ContextMenuSection } from './context-menu.js';
+
+function basicItems(opts: { onA?: () => void; onB?: () => void; disabledA?: boolean } = {}): ContextMenuSection {
+  return [
+    { label: 'A', disabled: opts.disabledA, onClick: opts.onA },
+    { label: 'B', onClick: opts.onB },
+  ];
+}
+
+describe('showContextMenu() — mounting', () => {
+  it('mounts a backdrop and menu to document.body', () => {
+    showContextMenu({ x: 10, y: 10, items: basicItems() });
+    expect(document.querySelector('.aip-ctx-menu')).not.toBeNull();
+    expect(document.querySelector('.aip-ctx-backdrop')).not.toBeNull();
+  });
+
+  it('renders each item with its label and disabled state', () => {
+    showContextMenu({ x: 10, y: 10, items: basicItems({ disabledA: true }) });
+    const items = document.querySelectorAll('.aip-ctx-menu__item');
+    expect(items.length).toBe(2);
+    expect(items[0]?.classList.contains('aip-ctx-menu__item--disabled')).toBe(true);
+    expect(items[1]?.classList.contains('aip-ctx-menu__item--disabled')).toBe(false);
+  });
+
+  it('renders danger style on items flagged danger', () => {
+    showContextMenu({
+      x: 10, y: 10,
+      items: [{ label: 'Boom', danger: true }],
+    });
+    const item = document.querySelector('.aip-ctx-menu__item');
+    expect(item?.classList.contains('aip-ctx-menu__item--danger')).toBe(true);
+  });
+
+  it('renders separators for null entries', () => {
+    showContextMenu({
+      x: 10, y: 10,
+      items: [{ label: 'A' }, null, { label: 'B' }],
+    });
+    expect(document.querySelectorAll('.aip-ctx-menu__sep').length).toBe(1);
+  });
+});
+
+describe('showContextMenu() — dismissal', () => {
+  it('closes and fires onClose when Esc is pressed', () => {
+    let closed = 0;
+    showContextMenu({ x: 10, y: 10, items: basicItems(), onClose: () => { closed += 1; } });
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.querySelector('.aip-ctx-menu')).toBeNull();
+    expect(document.querySelector('.aip-ctx-backdrop')).toBeNull();
+    expect(closed).toBe(1);
+  });
+
+  it('closes when backdrop is clicked', () => {
+    let closed = 0;
+    showContextMenu({ x: 10, y: 10, items: basicItems(), onClose: () => { closed += 1; } });
+    const backdrop = document.querySelector('.aip-ctx-backdrop') as HTMLElement;
+    backdrop.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.querySelector('.aip-ctx-menu')).toBeNull();
+    expect(closed).toBe(1);
+  });
+
+  it('closes and reopens on backdrop right-click', () => {
+    showContextMenu({ x: 10, y: 10, items: basicItems() });
+    const backdrop = document.querySelector('.aip-ctx-backdrop') as HTMLElement;
+    backdrop.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(document.querySelector('.aip-ctx-menu')).toBeNull();
+  });
+});
+
+describe('showContextMenu() — activation', () => {
+  it('fires the clicked item onClick and closes the menu', () => {
+    let aCount = 0;
+    showContextMenu({ x: 10, y: 10, items: basicItems({ onA: () => { aCount += 1; } }) });
+    const items = document.querySelectorAll('.aip-ctx-menu__item');
+    (items[0] as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(aCount).toBe(1);
+    expect(document.querySelector('.aip-ctx-menu')).toBeNull();
+  });
+
+  it('does not fire onClick when a disabled item is clicked', () => {
+    let aCount = 0;
+    showContextMenu({
+      x: 10, y: 10,
+      items: basicItems({ onA: () => { aCount += 1; }, disabledA: true }),
+    });
+    const items = document.querySelectorAll('.aip-ctx-menu__item');
+    (items[0] as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(aCount).toBe(0);
+  });
+});
+
+describe('showContextMenu() — keyboard nav', () => {
+  it('Enter activates the active item', () => {
+    let bCount = 0;
+    showContextMenu({
+      x: 10, y: 10,
+      items: [{ label: 'A', disabled: true }, { label: 'B', onClick: () => { bCount += 1; } }],
+    });
+    // Active starts at first ENABLED item (B at index 1).
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(bCount).toBe(1);
+  });
+
+  it('ArrowDown moves the active item past disabled entries', () => {
+    let aCount = 0, cCount = 0;
+    showContextMenu({
+      x: 10, y: 10,
+      items: [
+        { label: 'A', onClick: () => { aCount += 1; } },
+        { label: 'B', disabled: true },
+        { label: 'C', onClick: () => { cCount += 1; } },
+      ],
+    });
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(aCount).toBe(0);
+    expect(cCount).toBe(1);
+  });
+});
+
+describe('showContextMenu() — viewport flip', () => {
+  it('flips to the left when click would overflow the right edge', () => {
+    // Force a measurable menu width via stubbed getBoundingClientRect.
+    const origInnerWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { value: 100, configurable: true });
+    const origProto = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return { width: 80, height: 60, top: 0, left: 0, right: 80, bottom: 60, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+    };
+    try {
+      showContextMenu({ x: 80, y: 10, items: basicItems() });
+      const menu = document.querySelector('.aip-ctx-menu') as HTMLElement;
+      // x + width = 160; viewport - 8 = 92. So we flip: left = max(8, 80 - 80) = 8.
+      expect(menu.style.left).toBe('8px');
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = origProto;
+      Object.defineProperty(window, 'innerWidth', { value: origInnerWidth, configurable: true });
+    }
+  });
+});
