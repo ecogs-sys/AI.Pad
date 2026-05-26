@@ -13,9 +13,12 @@ import {
   LayoutSetSidebarWidthPayloadSchema,
   LayoutModalPayloadSchema,
   LayoutReorderTabsPayloadSchema,
+  LayoutPersistSplitsPayloadSchema,
+  LayoutSplitsForTabPayloadSchema,
 } from '@aipad/contracts';
 import type {
   AttentionEvent,
+  PersistedSplitNode,
   SessionCreateOptions,
   SessionId,
   SessionInfo,
@@ -42,6 +45,11 @@ export type LayoutModalCallback = (open: boolean) => void;
 export type ReorderTabsCallback = (order: SessionId[]) => void;
 export type SessionCloseCallback = (sessionId: SessionId) => void;
 export type RestartViewCallback = (sessionId: SessionId) => void;
+export type PersistSplitsCallback = (
+  tabId: SessionId,
+  splits: PersistedSplitNode | null,
+) => void;
+export type SplitsForTabCallback = (tabId: SessionId) => PersistedSplitNode | null;
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
@@ -56,6 +64,8 @@ export class IpcRouter {
   private reorderTabsCallback: ReorderTabsCallback | null = null;
   private sessionCloseCallback: SessionCloseCallback | null = null;
   private restartViewCallback: RestartViewCallback | null = null;
+  private persistSplitsCallback: PersistSplitsCallback | null = null;
+  private splitsForTabCallback: SplitsForTabCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -98,6 +108,14 @@ export class IpcRouter {
 
   onRestartView(cb: RestartViewCallback): void {
     this.restartViewCallback = cb;
+  }
+
+  onPersistSplits(cb: PersistSplitsCallback): void {
+    this.persistSplitsCallback = cb;
+  }
+
+  onSplitsForTab(cb: SplitsForTabCallback): void {
+    this.splitsForTabCallback = cb;
   }
 
   subscribe(wc: WebContents): void {
@@ -227,6 +245,19 @@ export class IpcRouter {
       if (!parsed.success) return { error: parsed.error.message };
       this.reorderTabsCallback?.(parsed.data.order);
       return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.LayoutPersistSplits, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutPersistSplitsPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.persistSplitsCallback?.(parsed.data.tabId, parsed.data.splits);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.LayoutSplitsForTab, (_e, raw): PersistedSplitNode | null | { error: string } => {
+      const parsed = LayoutSplitsForTabPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      return this.splitsForTabCallback?.(parsed.data.tabId) ?? null;
     });
   }
 
