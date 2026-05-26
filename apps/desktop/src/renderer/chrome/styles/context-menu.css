@@ -1,0 +1,80 @@
+/* AI.Pad context menu — ported from the design handoff's components.css.
+   Depends on the design tokens defined in ./tokens.css. */
+
+.aip-ctx-menu {
+  position: fixed;
+  min-width: 220px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  z-index: 1000;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-1);
+  user-select: none;
+  animation: aip-ctx-in 100ms ease-out;
+}
+@keyframes aip-ctx-in {
+  from { transform: translateY(-3px); }
+  to   { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aip-ctx-menu { animation: none; }
+}
+
+.aip-ctx-menu__sep {
+  height: 1px;
+  background: var(--border-1);
+  margin: 4px 0;
+}
+
+.aip-ctx-menu__item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  color: var(--text-1);
+  font-family: var(--font-sans); font-size: 13px;
+  cursor: pointer;
+}
+.aip-ctx-menu__item:hover:not(.aip-ctx-menu__item--disabled) {
+  background: var(--bg-3);
+}
+.aip-ctx-menu__item--active:not(.aip-ctx-menu__item--disabled) {
+  background: var(--accent-soft);
+  color: var(--text-1);
+}
+.aip-ctx-menu__item--active:not(.aip-ctx-menu__item--disabled) .aip-ctx-menu__kbd {
+  color: var(--text-2);
+}
+.aip-ctx-menu__item--disabled {
+  color: var(--text-4);
+  cursor: default;
+}
+.aip-ctx-menu__item--disabled .aip-ctx-menu__kbd {
+  color: var(--text-4);
+}
+.aip-ctx-menu__item--danger { color: var(--st-limited); }
+.aip-ctx-menu__item--danger:hover { background: oklch(0.70 0.18 25 / 0.12); }
+
+.aip-ctx-menu__icon {
+  width: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.aip-ctx-menu__item--danger .aip-ctx-menu__icon { color: var(--st-limited); }
+
+.aip-ctx-menu__label { flex: 1; }
+.aip-ctx-menu__kbd {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--text-3);
+  letter-spacing: 0.2px;
+}
+
+/* Invisible full-screen layer that closes the menu on outside click. */
+.aip-ctx-backdrop {
+  position: fixed; inset: 0; z-index: 999;
+}
