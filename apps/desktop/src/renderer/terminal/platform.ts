@@ -57,5 +57,6 @@ export function matchShortcut(e: KeyboardEvent, combo: string): boolean {
   if (wantShift !== e.shiftKey) return false;
   if (wantAlt   !== e.altKey)   return false;
 
+  if (key === undefined) return false;
   return e.key.toLowerCase() === key.toLowerCase();
 }
