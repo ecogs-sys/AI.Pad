@@ -6,6 +6,7 @@ import {
   SessionInfoSchema,
   ShellSchema,
 } from './session.js';
+import { PersistedSplitNodeSchema } from './persistence.js';
 
 /**
  * IPC channel names. Renderer -> Main are "core.*"; Main -> Renderer events are "event.*".
@@ -27,6 +28,8 @@ export const IpcChannel = {
   LayoutSetSidebarWidth: 'core.layout.set-sidebar-width',
   LayoutModal: 'core.layout.modal',
   LayoutReorderTabs: 'core.layout.reorder-tabs',
+  LayoutPersistSplits: 'core.layout.persist-splits',
+  LayoutSplitsForTab: 'core.layout.splits-for-tab',
   LayoutDefaultCwd: 'core.layout.default-cwd',
   FsPickDirectory: 'core.fs.pick-directory',
   FsPathExists: 'core.fs.path-exists',
@@ -106,6 +109,19 @@ export const LayoutModalPayloadSchema = z.object({
 /** Sent after a drag-reorder so main can persist the authoritative tab order. */
 export const LayoutReorderTabsPayloadSchema = z.object({
   order: z.array(SessionIdSchema),
+});
+
+/** Renderer reports a tab's serialized split tree so main can persist it.
+ * `splits: null` means the tab is back to a single pane and the field should be cleared. */
+export const LayoutPersistSplitsPayloadSchema = z.object({
+  tabId: SessionIdSchema,
+  splits: PersistedSplitNodeSchema.nullable(),
+});
+
+/** Renderer asks main for the saved split tree for its tab (called once on startup).
+ * Main returns `null` when there is no saved tree. */
+export const LayoutSplitsForTabPayloadSchema = z.object({
+  tabId: SessionIdSchema,
 });
 
 /** Renderer asks main to open a native directory picker. `startPath` (if given) becomes
