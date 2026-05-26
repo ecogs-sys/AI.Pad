@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { PersistedTabsSchema, type PersistedTabs } from '@aipad/contracts';
+import { PersistedTabsSchema, migratePersistedTabs, type PersistedTabs } from '@aipad/contracts';
 
 const FILE_NAME = 'sessions.json';
 
@@ -38,7 +38,12 @@ export class SessionStore {
       await this.backup(path);
       return null;
     }
-    const result = PersistedTabsSchema.safeParse(parsed);
+    const migrated = migratePersistedTabs(parsed);
+    if (migrated === null) {
+      await this.backup(path);
+      return null;
+    }
+    const result = PersistedTabsSchema.safeParse(migrated);
     if (!result.success) {
       await this.backup(path);
       return null;
