@@ -208,7 +208,6 @@ html, body {
   font-size: 10.5px;
   color: var(--text-4);
 }
-#sidebar-palette-hint { letter-spacing: 0.2px; }
 #sidebar-count        { color: var(--text-3); }
 
 .sidebar-row {
@@ -329,7 +328,6 @@ body.sidebar-collapsed #sidebar-label,
 body.sidebar-collapsed #sidebar-overview,
 body.sidebar-collapsed #sidebar-sort,
 body.sidebar-collapsed #sidebar-new,
-body.sidebar-collapsed #sidebar-palette-hint,
 body.sidebar-collapsed #sidebar-count { display: none; }
 body.sidebar-collapsed #sidebar-header { padding: 0; justify-content: center; }
 body.sidebar-collapsed #sidebar-footer { padding: 0; justify-content: center; }
