@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@aipad/core';
-import type { Shell, SessionInfo, AppSettings, PersistedTab } from '@aipad/contracts';
+import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode } from '@aipad/contracts';
 import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
@@ -117,13 +117,16 @@ async function createSessionView(sessionId: string): Promise<void> {
   viewManager.show(sessionId);
 }
 
-async function createTabSession(opts: Parameters<SessionManager['create']>[0]): Promise<SessionInfo> {
+async function createTabSession(opts: Parameters<SessionManager['create']>[0] & {
+  splits?: PersistedSplitNode;
+}): Promise<SessionInfo> {
   const session = sessionManager.create(opts);
   tabMeta.set(session.id, {
     tabId: session.id,
     shell: opts.shell,
     cwd: opts.cwd,
     ...(opts.title ? { title: opts.title } : {}),
+    ...(opts.splits ? { splits: opts.splits } : {}),
   });
   tabOrder.push(session.id);
   persistTabs();

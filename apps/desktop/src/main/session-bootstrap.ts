@@ -1,9 +1,16 @@
-import type { Shell, PersistedTabs } from '@aipad/contracts';
+import type { Shell, PersistedTabs, PersistedSplitNode } from '@aipad/contracts';
 import type { SessionInfo } from '@aipad/contracts';
 
 export interface BootstrapDeps {
   loadPersisted: () => Promise<PersistedTabs | null>;
-  createTabSession: (opts: { shell: Shell; cwd: string; cols: number; rows: number; title?: string }) => Promise<SessionInfo>;
+  createTabSession: (opts: {
+    shell: Shell;
+    cwd: string;
+    cols: number;
+    rows: number;
+    title?: string;
+    splits?: PersistedSplitNode;
+  }) => Promise<SessionInfo>;
   defaultShell: () => Shell;
   defaultCwd: () => string;
 }
@@ -23,6 +30,7 @@ export async function bootstrapSessions(deps: BootstrapDeps): Promise<string | n
         cols: 80,
         rows: 24,
         ...(tab.title ? { title: tab.title } : {}),
+        ...(tab.splits ? { splits: tab.splits } : {}),
       });
       if (firstId === null) firstId = info.id;
     }
