@@ -106,6 +106,28 @@ export class TerminalHost {
     this.term.dispose();
   }
 
+  // ── Public terminal actions used by the context menu wiring ──────────
+
+  hasSelection(): boolean {
+    return this.term.hasSelection();
+  }
+
+  getSelection(): string {
+    return this.term.getSelection();
+  }
+
+  paste(text: string): void {
+    this.term.paste(text);
+  }
+
+  selectAll(): void {
+    this.term.selectAll();
+  }
+
+  focus(): void {
+    this.term.focus();
+  }
+
   private async replay(): Promise<void> {
     try {
       const response = await this.bridge.send(IpcChannel.SessionReplay, { sessionId: this.sessionId });
