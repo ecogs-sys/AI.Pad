@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@aipad/core';
-import type { Shell, SessionInfo, AppSettings } from '@aipad/contracts';
+import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode } from '@aipad/contracts';
 import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
@@ -29,7 +29,7 @@ settingsStore.onError((err) => {
   console.warn('[main] settings not saved:', err instanceof Error ? err.message : err);
 });
 let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '' } };
-const tabMeta = new Map<string, { tabId: string; shell: Shell; cwd: string; title?: string }>();
+const tabMeta = new Map<string, PersistedTab>();
 /** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
 let tabOrder: string[] = [];
 /** pane session id -> owning tab's primary session id. */
@@ -46,12 +46,12 @@ function closeTabPanes(tabId: string): void {
 }
 
 function snapshotTabs(): {
-  version: 1;
-  tabs: Array<{ tabId: string; shell: Shell; cwd: string; title?: string }>;
+  version: 2;
+  tabs: PersistedTab[];
   focusedTabId: string | null;
 } {
   return {
-    version: 1,
+    version: 2,
     // Emit tabs in the authoritative order so a drag-reorder survives restart.
     tabs: tabOrder.filter((id) => tabMeta.has(id)).map((id) => tabMeta.get(id)!),
     focusedTabId: focusedSessionId,
@@ -288,6 +288,21 @@ ipcRouter.onReorderTabs((order) => {
   tabOrder = known;
   persistTabs();
 });
+
+// Persist the serialized split tree for a tab. Null clears the field.
+ipcRouter.onPersistSplits((tabId, splits) => {
+  const meta = tabMeta.get(tabId);
+  if (!meta) return;
+  if (splits === null) {
+    delete meta.splits;
+  } else {
+    meta.splits = splits;
+  }
+  persistTabs();
+});
+
+// Hand the saved split tree to the terminal renderer when it mounts.
+ipcRouter.onSplitsForTab((tabId) => tabMeta.get(tabId)?.splits ?? null);
 
 // Explicit user close → full tab teardown.
 ipcRouter.onSessionClose((sessionId) => closeTab(sessionId));
