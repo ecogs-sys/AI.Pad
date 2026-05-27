@@ -115,3 +115,71 @@ describe('SplitContainer.serialize()', () => {
     });
   });
 });
+
+describe('SplitContainer.restore()', () => {
+  it('does nothing for a tree with no branches (treats a leaf as a no-op)', async () => {
+    await splits.restore({ kind: 'leaf' });
+    expect(splits.serialize()).toBeUndefined();
+  });
+
+  it('rebuilds a single horizontal branch and matches via serialize()', async () => {
+    bridge.send.mockResolvedValue({ id: 'pane-x' });
+    const tree = {
+      kind: 'branch' as const,
+      orientation: 'horizontal' as const,
+      ratio: 0.7,
+      a: { kind: 'leaf' as const },
+      b: { kind: 'leaf' as const },
+    };
+    await splits.restore(tree);
+    expect(splits.serialize()).toEqual(tree);
+  });
+
+  it('rebuilds a nested tree (horizontal then vertical on right leaf)', async () => {
+    bridge.send.mockResolvedValue({ id: 'pane-y' });
+    const tree = {
+      kind: 'branch' as const,
+      orientation: 'horizontal' as const,
+      ratio: 0.6,
+      a: { kind: 'leaf' as const },
+      b: {
+        kind: 'branch' as const,
+        orientation: 'vertical' as const,
+        ratio: 0.3,
+        a: { kind: 'leaf' as const },
+        b: { kind: 'leaf' as const },
+      },
+    };
+    await splits.restore(tree);
+    expect(splits.serialize()).toEqual(tree);
+  });
+
+  it('stops descending a subtree if a pane create returns an error, leaving the rest intact', async () => {
+    // First split succeeds; second (inside the b subtree) fails.
+    bridge.send
+      .mockResolvedValueOnce({ id: 'pane-ok' })
+      .mockResolvedValueOnce({ error: 'spawn failed' });
+    const tree = {
+      kind: 'branch' as const,
+      orientation: 'horizontal' as const,
+      ratio: 0.5,
+      a: { kind: 'leaf' as const },
+      b: {
+        kind: 'branch' as const,
+        orientation: 'vertical' as const,
+        ratio: 0.5,
+        a: { kind: 'leaf' as const },
+        b: { kind: 'leaf' as const },
+      },
+    };
+    await splits.restore(tree);
+    // Outer split exists, inner one was skipped — both leaves of the outer branch are plain leaves.
+    expect(splits.serialize()).toEqual({
+      kind: 'branch',
+      orientation: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf' },
+      b: { kind: 'leaf' },
+    });
+  });
+});
