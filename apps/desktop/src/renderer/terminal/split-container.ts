@@ -41,6 +41,10 @@ export class SplitContainer {
   /** Primary session id of the owning tab — sent with every pane create so main can
    * scope pane cleanup to this tab. */
   private readonly tabId: SessionId;
+  /** When true, persist() is a no-op. Used during restore() to avoid emitting one
+   * IPC call per replayed split during startup — a single final persist runs once
+   * the tree has been fully rebuilt. */
+  private restoring: boolean = false;
 
   constructor(opts: SplitContainerOptions) {
     this.bridge = opts.bridge;
@@ -113,6 +117,7 @@ export class SplitContainer {
     newLeafEl.addEventListener('focusin', () => {
       this.focused = this.findLeafByElement(newLeafEl) ?? this.focused;
     });
+    this.persist();
   }
 
   private wireDivider(branch: BranchNode, divider: HTMLElement): void {
@@ -132,6 +137,7 @@ export class SplitContainer {
       const onUp = (): void => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        this.persist();
       };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
@@ -166,6 +172,7 @@ export class SplitContainer {
 
     this.focused = this.firstLeaf(sibling);
     this.focused.el.focus();
+    this.persist();
   }
 
   private findParent(node: SplitNode, target: SplitNode): BranchNode | null {
@@ -259,6 +266,14 @@ export class SplitContainer {
     return this.root.kind === 'leaf' ? undefined : this.serializeNode(this.root);
   }
 
+  private persist(): void {
+    if (this.restoring) return;
+    void this.bridge.send(IpcChannel.LayoutPersistSplits, {
+      tabId: this.tabId,
+      splits: this.serialize() ?? null,
+    });
+  }
+
   /**
    * Replay a saved tree onto the current single-leaf root by re-driving splitFocused().
    * If any pane create fails, that subtree is abandoned and the rest of the tree
@@ -266,7 +281,12 @@ export class SplitContainer {
    */
   async restore(tree: PersistedSplitNode): Promise<void> {
     if (tree.kind === 'leaf') return;
-    await this.restoreBranch(this.root as LeafNode, tree);
+    this.restoring = true;
+    try {
+      await this.restoreBranch(this.root as LeafNode, tree);
+    } finally {
+      this.restoring = false;
+    }
   }
 
   /**
