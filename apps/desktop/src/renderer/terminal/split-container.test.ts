@@ -185,3 +185,48 @@ describe('SplitContainer.restore()', () => {
     });
   });
 });
+
+function persistCalls(b: FakeBridge): Array<{ tabId: string; splits: unknown }> {
+  return b.send.mock.calls
+    .filter((c: unknown[]) => c[0] === 'core.layout.persist-splits')
+    .map((c: unknown[]) => c[1] as { tabId: string; splits: unknown });
+}
+
+describe('SplitContainer persistence', () => {
+  it('sends LayoutPersistSplits after a successful split', async () => {
+    bridge.send.mockResolvedValueOnce({ id: 'pane-a' });
+    await splits.splitFocused('horizontal');
+    const calls = persistCalls(bridge);
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[calls.length - 1]!.tabId).toBe('tab-1');
+    expect(calls[calls.length - 1]!.splits).toEqual({
+      kind: 'branch',
+      orientation: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf' },
+      b: { kind: 'leaf' },
+    });
+  });
+
+  it('sends LayoutPersistSplits with null after closing the last extra pane', async () => {
+    bridge.send.mockResolvedValueOnce({ id: 'pane-a' });
+    await splits.splitFocused('horizontal');
+    splits.closeFocusedPane();
+    const calls = persistCalls(bridge);
+    expect(calls[calls.length - 1]!.splits).toBeNull();
+  });
+
+  it('sends LayoutPersistSplits with the new ratio after a divider drag ends', async () => {
+    bridge.send.mockResolvedValueOnce({ id: 'pane-a' });
+    await splits.splitFocused('horizontal');
+    const divider = rootEl.querySelector('div[style*="col-resize"]') as HTMLElement;
+    expect(divider).not.toBeNull();
+    divider.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    // No mousemove — just end the drag; persist should still fire on mouseup.
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    const calls = persistCalls(bridge);
+    const last = calls[calls.length - 1]!;
+    expect(last.tabId).toBe('tab-1');
+    expect((last.splits as { kind: string }).kind).toBe('branch');
+  });
+});
