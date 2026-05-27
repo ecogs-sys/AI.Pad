@@ -39,13 +39,14 @@ function freshBridge(): FakeBridge {
 
 let rootEl: HTMLElement;
 let bridge: FakeBridge;
+let splits: SplitContainer;
 
 beforeEach(() => {
   document.body.innerHTML = '';
   rootEl = document.createElement('div');
   document.body.appendChild(rootEl);
   bridge = freshBridge();
-  new SplitContainer({
+  splits = new SplitContainer({
     rootEl,
     bridge: bridge as unknown as ConstructorParameters<typeof SplitContainer>[0]['bridge'],
     initialSessionId: 'tab-1' as SessionId,
@@ -74,5 +75,43 @@ describe('SplitContainer pane context menu', () => {
     const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
     pane.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(true);
+  });
+});
+
+describe('SplitContainer.serialize()', () => {
+  it('returns undefined for a single leaf (no splits)', () => {
+    expect(splits.serialize()).toBeUndefined();
+  });
+
+  it('returns a single horizontal branch after one horizontal split', async () => {
+    bridge.send.mockResolvedValueOnce({ id: 'pane-a' });
+    await splits.splitFocused('horizontal');
+    expect(splits.serialize()).toEqual({
+      kind: 'branch',
+      orientation: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf' },
+      b: { kind: 'leaf' },
+    });
+  });
+
+  it('returns a nested tree after a horizontal split followed by a vertical split on the new pane', async () => {
+    bridge.send.mockResolvedValueOnce({ id: 'pane-a' });
+    await splits.splitFocused('horizontal');
+    bridge.send.mockResolvedValueOnce({ id: 'pane-b' });
+    await splits.splitFocused('vertical');
+    expect(splits.serialize()).toEqual({
+      kind: 'branch',
+      orientation: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf' },
+      b: {
+        kind: 'branch',
+        orientation: 'vertical',
+        ratio: 0.5,
+        a: { kind: 'leaf' },
+        b: { kind: 'leaf' },
+      },
+    });
   });
 });

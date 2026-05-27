@@ -1,5 +1,5 @@
 import { TerminalHost, type PreloadBridge } from '@aipad/terminal-host';
-import type { SessionId, Shell } from '@aipad/contracts';
+import type { SessionId, Shell, PersistedSplitNode } from '@aipad/contracts';
 import { IpcChannel } from '@aipad/contracts';
 import { showContextMenu, buildTerminalContextMenu } from './context-menu.js';
 
@@ -242,5 +242,20 @@ export class SplitContainer {
 
   getFocusedSessionId(): SessionId {
     return this.focused.sessionId;
+  }
+
+  private serializeNode(node: SplitNode): PersistedSplitNode {
+    if (node.kind === 'leaf') return { kind: 'leaf' };
+    return {
+      kind: 'branch',
+      orientation: node.orientation,
+      ratio: node.ratio,
+      a: this.serializeNode(node.a),
+      b: this.serializeNode(node.b),
+    };
+  }
+
+  serialize(): PersistedSplitNode | undefined {
+    return this.root.kind === 'leaf' ? undefined : this.serializeNode(this.root);
   }
 }
