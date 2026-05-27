@@ -27,6 +27,8 @@ const splits = new SplitContainer({
 // Expose for keyboard / split shortcuts.
 (window as unknown as { __aipadSplits: SplitContainer }).__aipadSplits = splits;
 
+void splits.loadSavedLayout();
+
 bridge.on(IpcChannel.TerminalAction, (raw) => {
   const e = raw as { action: 'splitHorizontal' | 'splitVertical' | 'closePane' };
   if (e.action === 'splitHorizontal') void splits.splitFocused('horizontal');
