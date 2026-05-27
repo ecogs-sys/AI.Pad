@@ -258,4 +258,44 @@ export class SplitContainer {
   serialize(): PersistedSplitNode | undefined {
     return this.root.kind === 'leaf' ? undefined : this.serializeNode(this.root);
   }
+
+  /**
+   * Replay a saved tree onto the current single-leaf root by re-driving splitFocused().
+   * If any pane create fails, that subtree is abandoned and the rest of the tree
+   * still restores (the live tree stays coherent — just smaller than the saved one).
+   */
+  async restore(tree: PersistedSplitNode): Promise<void> {
+    if (tree.kind === 'leaf') return;
+    await this.restoreBranch(this.root as LeafNode, tree);
+  }
+
+  /**
+   * Restore `branch` underneath `target`. After splitFocused, the live branch has
+   * `a` = original target (the existing leaf) and `b` = the newly created leaf.
+   * We then recurse into both sides if they are themselves branches.
+   */
+  private async restoreBranch(target: LeafNode, branch: Extract<PersistedSplitNode, { kind: 'branch' }>): Promise<void> {
+    // Focus the target leaf so splitFocused() splits the right pane.
+    this.focused = target;
+    await this.splitFocused(branch.orientation);
+
+    // If splitFocused failed (pane create returned an error), the tree is unchanged —
+    // `target` still has no parent. findParent === null is our failure signal.
+    const newBranch = this.findParent(this.root, target);
+    if (!newBranch) return;
+
+    // Apply the saved ratio.
+    newBranch.ratio = branch.ratio;
+    newBranch.a.el.style.flex = `1 1 ${branch.ratio * 100}%`;
+    newBranch.b.el.style.flex = `1 1 ${(1 - branch.ratio) * 100}%`;
+
+    // Recurse into a then b. Each side is a leaf at this point (splitFocused
+    // creates a leaf for the new pane and keeps the old leaf intact).
+    if (branch.a.kind === 'branch') {
+      await this.restoreBranch(newBranch.a as LeafNode, branch.a);
+    }
+    if (branch.b.kind === 'branch') {
+      await this.restoreBranch(newBranch.b as LeafNode, branch.b);
+    }
+  }
 }
