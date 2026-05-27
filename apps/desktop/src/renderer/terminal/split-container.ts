@@ -279,10 +279,17 @@ export class SplitContainer {
     this.focused = target;
     await this.splitFocused(branch.orientation);
 
-    // If splitFocused failed (pane create returned an error), the tree is unchanged —
-    // `target` still has no parent. findParent === null is our failure signal.
+    // splitFocused leaves this.focused untouched on failure (early return) and sets it
+    // to the newly created leaf on success. That is our reliable success signal — it
+    // works at the top-level call AND in recursive calls, unlike findParent (target
+    // already has a parent in the recursive case, so findParent would return the wrong
+    // branch instead of null).
+    if (this.focused === target) return;
+
+    // After a successful split, target is now the `a` side of a fresh branch. Locate
+    // that branch in the tree so we can apply the saved ratio.
     const newBranch = this.findParent(this.root, target);
-    if (!newBranch) return;
+    if (!newBranch) return; // defensive — should not happen after a confirmed success.
 
     // Apply the saved ratio.
     newBranch.ratio = branch.ratio;
