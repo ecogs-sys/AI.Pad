@@ -325,4 +325,22 @@ export class SplitContainer {
       await this.restoreBranch(newBranch.b as LeafNode, branch.b);
     }
   }
+
+  /**
+   * Called once during terminal mount: asks main for the saved split tree for this
+   * tab and replays it. No-op if main returns null/no tree.
+   */
+  async loadSavedLayout(): Promise<void> {
+    let saved: PersistedSplitNode | null;
+    try {
+      saved = (await this.bridge.send(IpcChannel.LayoutSplitsForTab, {
+        tabId: this.tabId,
+      })) as PersistedSplitNode | null;
+    } catch (err) {
+      console.warn('[split] could not fetch saved layout:', err);
+      return;
+    }
+    if (!saved) return;
+    await this.restore(saved);
+  }
 }

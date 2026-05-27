@@ -230,3 +230,32 @@ describe('SplitContainer persistence', () => {
     expect((last.splits as { kind: string }).kind).toBe('branch');
   });
 });
+
+describe('SplitContainer.loadSavedLayout()', () => {
+  it('is a no-op when main returns null', async () => {
+    bridge.send.mockImplementation((channel: string) =>
+      channel === 'core.layout.splits-for-tab'
+        ? Promise.resolve(null)
+        : Promise.resolve({ id: 'pane-x' }),
+    );
+    await splits.loadSavedLayout();
+    expect(splits.serialize()).toBeUndefined();
+  });
+
+  it('replays a tree returned by main', async () => {
+    const saved = {
+      kind: 'branch' as const,
+      orientation: 'horizontal' as const,
+      ratio: 0.4,
+      a: { kind: 'leaf' as const },
+      b: { kind: 'leaf' as const },
+    };
+    bridge.send.mockImplementation((channel: string) =>
+      channel === 'core.layout.splits-for-tab'
+        ? Promise.resolve(saved)
+        : Promise.resolve({ id: 'pane-y' }),
+    );
+    await splits.loadSavedLayout();
+    expect(splits.serialize()).toEqual(saved);
+  });
+});
