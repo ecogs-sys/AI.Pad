@@ -258,4 +258,14 @@ describe('SplitContainer.loadSavedLayout()', () => {
     await splits.loadSavedLayout();
     expect(splits.serialize()).toEqual(saved);
   });
+
+  it('is a no-op when main returns { error }', async () => {
+    bridge.send.mockImplementation((channel: string) =>
+      channel === 'core.layout.splits-for-tab'
+        ? Promise.resolve({ error: 'bad payload' })
+        : Promise.resolve({ id: 'pane-x' }),
+    );
+    await splits.loadSavedLayout();
+    expect(splits.serialize()).toBeUndefined();
+  });
 });
