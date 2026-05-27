@@ -331,16 +331,20 @@ export class SplitContainer {
    * tab and replays it. No-op if main returns null/no tree.
    */
   async loadSavedLayout(): Promise<void> {
-    let saved: PersistedSplitNode | null;
+    let saved: PersistedSplitNode | null | { error: string };
     try {
       saved = (await this.bridge.send(IpcChannel.LayoutSplitsForTab, {
         tabId: this.tabId,
-      })) as PersistedSplitNode | null;
+      })) as PersistedSplitNode | null | { error: string };
     } catch (err) {
       console.warn('[split] could not fetch saved layout:', err);
       return;
     }
     if (!saved) return;
+    if (typeof saved === 'object' && 'error' in saved) {
+      console.warn('[split] main rejected splits-for-tab:', saved.error);
+      return;
+    }
     await this.restore(saved);
   }
 }
