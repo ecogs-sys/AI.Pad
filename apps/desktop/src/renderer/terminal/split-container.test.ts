@@ -162,22 +162,24 @@ describe('SplitContainer.restore()', () => {
     const tree = {
       kind: 'branch' as const,
       orientation: 'horizontal' as const,
-      ratio: 0.5,
+      ratio: 0.8,
       a: { kind: 'leaf' as const },
       b: {
         kind: 'branch' as const,
         orientation: 'vertical' as const,
-        ratio: 0.5,
+        ratio: 0.2,
         a: { kind: 'leaf' as const },
         b: { kind: 'leaf' as const },
       },
     };
     await splits.restore(tree);
-    // Outer split exists, inner one was skipped — both leaves of the outer branch are plain leaves.
+    // Outer split survives with its saved ratio (0.8); inner split failed so its
+    // subtree is replaced by a plain leaf. The outer ratio must NOT be corrupted
+    // by the failed inner restore.
     expect(splits.serialize()).toEqual({
       kind: 'branch',
       orientation: 'horizontal',
-      ratio: 0.5,
+      ratio: 0.8,
       a: { kind: 'leaf' },
       b: { kind: 'leaf' },
     });
