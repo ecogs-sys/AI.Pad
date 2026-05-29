@@ -172,6 +172,7 @@ export class LayoutManager {
       result = await showNewSessionDialog(mount, {
         defaultShell: this.platformDefaultShell(),
         defaultCwd: this.platformDefaultCwd(),
+        pickDirectory: () => this.pickDirectory(),
       });
     } finally {
       void this.bridge.send(IpcChannel.LayoutModal, { open: false });
@@ -186,6 +187,15 @@ export class LayoutManager {
     if ('error' in info) {
       console.error('[chrome] new tab failed:', info.error);
     }
+  }
+
+  /** Open the native folder picker, seeded with the directory currently typed into the
+   * New Tab dialog. Returns the chosen path, or null if cancelled. */
+  private async pickDirectory(): Promise<string | null> {
+    const cwdInput = document.getElementById('ns-cwd') as HTMLInputElement | null;
+    const defaultPath = cwdInput?.value.trim() ?? '';
+    const picked = await this.bridge.send(IpcChannel.DialogPickDirectory, { defaultPath });
+    return typeof picked === 'string' ? picked : null;
   }
 
   private platformDefaultShell(): Shell {
