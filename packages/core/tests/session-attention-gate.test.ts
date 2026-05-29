@@ -36,7 +36,7 @@ describe('Session attention gate', () => {
 
     // Let the startup prompt drain past the idle window with the gate in place
     // (no idle should fire yet — that is verified by the previous test).
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 2500));
     expect(events.filter((e) => e.signal === 'idle')).toHaveLength(0);
 
     // Send an empty newline so the shell prints a fresh prompt without running
@@ -50,7 +50,7 @@ describe('Session attention gate', () => {
       .slice(before)
       .filter((e) => e.signal === 'idle');
     expect(idleAfterInput.length).toBeGreaterThan(0);
-  });
+  }, 10_000);
 
   it("does not change status to 'awaiting-input' on a suppressed idle (quiet shell)", async () => {
     session = newSession();
