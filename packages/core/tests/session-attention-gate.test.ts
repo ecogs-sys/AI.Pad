@@ -66,4 +66,29 @@ describe('Session attention gate', () => {
     expect(events).toHaveLength(0);
     expect(session.info().status).toBe('running');
   });
+
+  it('does not count xterm focus reports as user input', async () => {
+    session = newSession();
+    const events: AttentionEvent[] = [];
+    session.on('attention', (ev) => events.push(ev));
+
+    // Drain past the initial idle window so the prompt no longer counts.
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(events).toHaveLength(0);
+
+    // xterm.js emits these when the terminal element gains/loses DOM focus.
+    // They flow through term.onData -> SessionWrite IPC -> Session.write(),
+    // but they must NOT unlock the attention gate — otherwise opening the
+    // app and clicking elsewhere would notify on every restored pane.
+    session.write('\x1b[O'); // focus out
+    session.write('\x1b[I'); // focus in
+
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(events).toHaveLength(0);
+
+    // Real user input still unlocks the gate.
+    session.write('\r');
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(events.filter((e) => e.signal === 'idle').length).toBeGreaterThan(0);
+  }, 10_000);
 });

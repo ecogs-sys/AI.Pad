@@ -113,10 +113,15 @@ worth surfacing.
   behavior. First keystroke flips the flag; subsequent idle fires normally.
 - **Resize at startup:** `Session.resize()` does not go through `write()`, so
   the flag is not flipped by window resize events.
-- **Terminal-renderer init writes:** `TerminalHost.wireInput()`
-  (`packages/terminal-host/src/terminal-host.ts:151`) sends `SessionWrite` only
-  from `term.onData` — i.e. real keyboard/paste input. No automatic startup
-  writes are issued.
+- **xterm focus reports (`ESC[I`, `ESC[O`):** xterm.js emits these through
+  `term.onData` when its DOM element gains or loses focus, which forwards them
+  through `SessionWrite` IPC into `Session.write()`. They must still flow to
+  the PTY (vim and similar tools rely on focus events when they enable
+  DECSET 1004), but they are **not** user typing — `Session.write()`
+  identifies them by exact-byte match and skips the gate-flip in that case.
+  Without this carve-out the gate unlocks the moment the pane mounts, because
+  the terminal element loses focus as soon as another pane or the chrome
+  takes focus, emitting an `ESC[O` write.
 
 ## Testing
 
