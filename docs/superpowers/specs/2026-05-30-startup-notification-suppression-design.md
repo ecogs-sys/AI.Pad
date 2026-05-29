@@ -49,13 +49,12 @@ Add one boolean to `Session` (`packages/core/src/session.ts`):
 
 ### Gate
 
-Modify the existing `detector.on('attention', …)` handler in `Session`:
-
-- `signal === 'bell'` → re-emit (unchanged).
-- `signal === 'osc'`  → re-emit (unchanged).
-- `signal === 'idle'` → re-emit only if `hasReceivedUserInput === true`;
-  otherwise drop silently and **do not** transition `_status` to
-  `awaiting-input`.
+Modify the existing `detector.on('attention', …)` handler in `Session` to
+drop **every** attention signal while `hasReceivedUserInput === false`. A
+shell the user has never spoken to cannot legitimately be "asking for your
+attention" — whatever it emits in that window is either initialization noise
+(e.g. a BEL in pwsh's banner, ANSI chatter from a profile script) or an
+automated tool talking to an empty seat.
 
 `AttentionDetector` stays untouched. It remains a pure byte-stream scanner; the
 "has the user spoken to this session" semantic lives in `Session` where input
@@ -65,12 +64,25 @@ arrives.
 
 | Signal             | Before first `write()` | After first `write()` |
 |--------------------|------------------------|------------------------|
-| `bell` (\x07)      | fires                  | fires                  |
-| `osc` (AI.Pad esc) | fires                  | fires                  |
+| `bell` (\x07)      | dropped                | fires                  |
+| `osc` (AI.Pad esc) | dropped                | fires                  |
 | `idle` (prompt + 1.5 s) | dropped           | fires                  |
 
-When `idle` is dropped, `Session._status` remains `running`. When `idle` is
-emitted (after first input), `_status` becomes `awaiting-input` as it does today.
+When any attention event is dropped, `Session._status` remains `running`. Once
+attention is emitted (which can only happen after first input), `_status`
+becomes `awaiting-input` as it does today.
+
+### History
+
+The original design gated only `idle`, on the theory that `bell` and `osc`
+are deliberate high-confidence intent signals worth surfacing immediately.
+Manual verification showed that pwsh on Windows emits a BEL during its banner,
+which the bridge still surfaced as one notification per restored pane (just
+fewer than the original four idle events). Broadening the gate to all signals
+is the right rule: at app boot, any "needs attention" claim from a process
+the user has not yet engaged with is not actionable. Tools that intentionally
+emit `osc` immediately on startup (rare) will surface the next time they
+emit it, after the user has typed.
 
 ### Auto-resume
 

@@ -65,10 +65,11 @@ export class Session extends EventEmitter {
     this._status = 'running';
 
     this.detector.on('attention', (ev) => {
-      // An idle prompt only counts as "needs you" if the user has actually used the
-      // session. A fresh shell sitting at its first prompt (restored layout, new
-      // tab, etc.) would otherwise fire one notification per spawned pane.
-      if (ev.signal === 'idle' && !this.hasReceivedUserInput) return;
+      // A shell the user has never spoken to cannot legitimately be asking for
+      // attention. At app boot the restored panes emit prompts (idle), banner
+      // chimes (bell), or startup escapes that the user did not ask for — none
+      // are actionable until they have actually engaged with the session.
+      if (!this.hasReceivedUserInput) return;
       // Detector emits with sessionId='__pending__'; rewrite with our real id.
       this._status = 'awaiting-input';
       this.emit('attention', { ...ev, sessionId: this.id });
