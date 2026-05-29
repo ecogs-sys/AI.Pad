@@ -45,6 +45,7 @@ export class Session extends EventEmitter {
   private _title: string;
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
+  private hasReceivedUserInput = false;
 
   constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab') {
     super();
@@ -64,6 +65,10 @@ export class Session extends EventEmitter {
     this._status = 'running';
 
     this.detector.on('attention', (ev) => {
+      // An idle prompt only counts as "needs you" if the user has actually used the
+      // session. A fresh shell sitting at its first prompt (restored layout, new
+      // tab, etc.) would otherwise fire one notification per spawned pane.
+      if (ev.signal === 'idle' && !this.hasReceivedUserInput) return;
       // Detector emits with sessionId='__pending__'; rewrite with our real id.
       this._status = 'awaiting-input';
       this.emit('attention', { ...ev, sessionId: this.id });
@@ -96,6 +101,10 @@ export class Session extends EventEmitter {
     if (this._status === 'exited') return;
     // Any user input clears the awaiting-input state.
     if (this._status === 'awaiting-input') this._status = 'running';
+    // Record that this session has been spoken to — gates idle attention so a
+    // never-touched shell does not surface as "awaiting your input".
+    const length = typeof data === 'string' ? data.length : data.byteLength;
+    if (length > 0) this.hasReceivedUserInput = true;
     this.pty.write(typeof data === 'string' ? data : data.toString('utf8'));
   }
 
