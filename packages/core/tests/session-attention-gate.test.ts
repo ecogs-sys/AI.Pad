@@ -17,16 +17,17 @@ describe('Session attention gate', () => {
   let session: Session | null = null;
   afterEach(() => { session?.kill(); session = null; });
 
-  it('does not emit idle attention before any user input', async () => {
+  it('does not emit any attention before the first user input', async () => {
     session = newSession();
     const events: AttentionEvent[] = [];
     session.on('attention', (ev) => events.push(ev));
 
-    // Wait well past the 1.5 s idle window — the shell has printed its prompt
-    // and gone quiet, which today would emit idle.
+    // Wait well past the 1.5 s idle window. The gate suppresses every signal
+    // until first input — idle from the startup prompt, any bell the shell
+    // banner emits (pwsh on Windows does), and any pre-input osc chatter.
     await new Promise((r) => setTimeout(r, 2500));
 
-    expect(events.filter((e) => e.signal === 'idle')).toHaveLength(0);
+    expect(events).toHaveLength(0);
   });
 
   it('emits idle attention after the first user input', async () => {
@@ -52,26 +53,17 @@ describe('Session attention gate', () => {
     expect(idleAfterInput.length).toBeGreaterThan(0);
   }, 10_000);
 
-  it("does not change status to 'awaiting-input' on a suppressed idle (quiet shell)", async () => {
+  it("leaves status as 'running' before the first user input", async () => {
     session = newSession();
     const events: AttentionEvent[] = [];
     session.on('attention', (ev) => events.push(ev));
 
     await new Promise((r) => setTimeout(r, 2500));
 
-    // Primary invariant: idle is suppressed pre-input. Already covered by the
-    // first test; re-asserted here so a regression that re-emits idle would
-    // also fail this test instead of vacuously passing.
-    expect(events.filter((e) => e.signal === 'idle')).toHaveLength(0);
-
-    // Secondary invariant: a suppressed idle must NOT mutate _status. That is
-    // only observable when nothing else moved status during the wait window.
-    // pwsh on Windows emits a BEL in its banner, which legitimately drives
-    // status to 'awaiting-input' (bell is unsuppressed by design). When the
-    // shell is quiet, the gate is the only thing that could have flipped
-    // status — so assert only in that case.
-    if (events.length === 0) {
-      expect(session.info().status).toBe('running');
-    }
+    // No attention of any kind should have surfaced (covered by the first
+    // test too) and the status mutation that the detector handler would have
+    // performed must have been suppressed alongside the emit.
+    expect(events).toHaveLength(0);
+    expect(session.info().status).toBe('running');
   });
 });
