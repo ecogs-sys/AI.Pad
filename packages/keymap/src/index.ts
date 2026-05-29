@@ -1,6 +1,6 @@
 /**
  * Plan 1 shipped a minimal registry. Plan 2 adds tab and sidebar shortcuts.
- * Plan 3 will add split shortcuts (Ctrl+\, Ctrl+Shift+\).
+ * Plan 3 adds split shortcuts (Alt+Shift+=, Alt+Shift+-, Ctrl+Shift+W).
  */
 export interface KeyBinding {
   id: string;
@@ -24,8 +24,8 @@ export const Bindings = {
   jumpTab8:      { id: 'jumpTab8',      description: 'Switch to tab 8',   accelerator: 'CmdOrCtrl+8' },
   jumpTab9:      { id: 'jumpTab9',      description: 'Switch to tab 9',   accelerator: 'CmdOrCtrl+9' },
   toggleSidebar:   { id: 'toggleSidebar',   description: 'Toggle sidebar',      accelerator: 'CmdOrCtrl+B' },
-  splitHorizontal: { id: 'splitHorizontal', description: 'Split horizontally', accelerator: 'CmdOrCtrl+\\' },
-  splitVertical:   { id: 'splitVertical',   description: 'Split vertically',   accelerator: 'CmdOrCtrl+Shift+\\' },
+  splitHorizontal: { id: 'splitHorizontal', description: 'Split horizontally', accelerator: 'Alt+Shift+=' },
+  splitVertical:   { id: 'splitVertical',   description: 'Split vertically',   accelerator: 'Alt+Shift+-' },
   closePane:       { id: 'closePane',       description: 'Close pane',         accelerator: 'CmdOrCtrl+Shift+W' },
 } as const satisfies Record<string, KeyBinding>;
 

@@ -33,6 +33,8 @@ export interface SplitContainerOptions {
 export class SplitContainer {
   private root: SplitNode;
   private focused: LeafNode;
+  private contextMenuEl: HTMLElement | null = null;
+  private menuCleanup: (() => void) | null = null;
   private readonly bridge: PreloadBridge;
   private readonly shell: Shell;
   private readonly cwd: string;
@@ -52,10 +54,7 @@ export class SplitContainer {
     const host = new TerminalHost({ container: leafEl, sessionId: opts.initialSessionId, bridge: this.bridge });
     this.root = { kind: 'leaf', sessionId: opts.initialSessionId, host, el: leafEl };
     this.focused = this.root;
-    leafEl.addEventListener('focusin', () => {
-      // Walk the tree to find the leaf with this DOM element — keeps focus tracking correct after splits.
-      this.focused = this.findLeafByElement(leafEl) ?? this.focused;
-    });
+    this.wirePaneEvents(leafEl);
   }
 
   async splitFocused(orientation: Orientation): Promise<void> {
@@ -109,9 +108,7 @@ export class SplitContainer {
     this.wireDivider(branch, divider);
 
     this.focused = newLeaf;
-    newLeafEl.addEventListener('focusin', () => {
-      this.focused = this.findLeafByElement(newLeafEl) ?? this.focused;
-    });
+    this.wirePaneEvents(newLeafEl);
   }
 
   private wireDivider(branch: BranchNode, divider: HTMLElement): void {
@@ -165,6 +162,81 @@ export class SplitContainer {
 
     this.focused = this.firstLeaf(sibling);
     this.focused.el.focus();
+  }
+
+  /** Wire focus tracking and the right-click context menu for a pane element. */
+  private wirePaneEvents(el: HTMLElement): void {
+    el.addEventListener('focusin', () => {
+      // Walk the tree to find the leaf with this DOM element — keeps focus tracking correct after splits.
+      this.focused = this.findLeafByElement(el) ?? this.focused;
+    });
+    el.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      // Right-clicking a pane focuses it, so split/close act on that pane.
+      this.focused = this.findLeafByElement(el) ?? this.focused;
+      this.openContextMenu(ev.clientX, ev.clientY);
+    });
+  }
+
+  /** Render the pane context menu at the given viewport coordinates. */
+  private openContextMenu(x: number, y: number): void {
+    this.closeContextMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'pane-menu';
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+
+    const addItem = (label: string, run: () => void, disabled: boolean): void => {
+      const item = document.createElement('div');
+      item.className = disabled ? 'pane-menu-item disabled' : 'pane-menu-item';
+      item.textContent = label;
+      if (!disabled) {
+        item.addEventListener('click', () => {
+          this.closeContextMenu();
+          run();
+        });
+      }
+      menu.appendChild(item);
+    };
+
+    // Close Pane is unavailable for a single-pane tab — tab-level close (Ctrl+W) handles that.
+    const singlePane = this.root.kind === 'leaf';
+    addItem('Split Horizontally', () => void this.splitFocused('horizontal'), false);
+    addItem('Split Vertically', () => void this.splitFocused('vertical'), false);
+    addItem('Close Pane', () => this.closeFocusedPane(), singlePane);
+
+    document.body.appendChild(menu);
+    this.contextMenuEl = menu;
+
+    // Keep the menu inside the viewport when opened near an edge.
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) menu.style.left = `${Math.max(0, window.innerWidth - rect.width)}px`;
+    if (rect.bottom > window.innerHeight) menu.style.top = `${Math.max(0, window.innerHeight - rect.height)}px`;
+
+    const onDocMouseDown = (ev: MouseEvent): void => {
+      if (!menu.contains(ev.target as Node)) this.closeContextMenu();
+    };
+    const onDocKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') this.closeContextMenu();
+    };
+    // onDocMouseDown is registered from the contextmenu handler, which always fires
+    // after the initiating mousedown has completed — so it cannot close the menu for
+    // the very right-click that opened it.
+    document.addEventListener('mousedown', onDocMouseDown);
+    document.addEventListener('keydown', onDocKey);
+    this.menuCleanup = (): void => {
+      document.removeEventListener('mousedown', onDocMouseDown);
+      document.removeEventListener('keydown', onDocKey);
+    };
+  }
+
+  /** Remove the context menu and its document listeners, if open. */
+  private closeContextMenu(): void {
+    this.menuCleanup?.();
+    this.menuCleanup = null;
+    this.contextMenuEl?.remove();
+    this.contextMenuEl = null;
   }
 
   private findParent(node: SplitNode, target: SplitNode): BranchNode | null {
