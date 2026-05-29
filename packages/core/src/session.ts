@@ -34,6 +34,12 @@ function shellCommand(shell: SessionCreateOptions['shell']): string {
   }
 }
 
+/** xterm.js emits these when its DOM element gains/loses focus. They are not
+ * user typing — treat them as transparent passthrough to the PTY. */
+function isXtermFocusReport(data: string): boolean {
+  return data === '\x1b[I' || data === '\x1b[O';
+}
+
 export class Session extends EventEmitter {
   readonly id: SessionId;
   readonly opts: SessionCreateOptions;
@@ -45,6 +51,7 @@ export class Session extends EventEmitter {
   private _title: string;
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
+  private hasReceivedUserInput = false;
 
   constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab') {
     super();
@@ -64,6 +71,11 @@ export class Session extends EventEmitter {
     this._status = 'running';
 
     this.detector.on('attention', (ev) => {
+      // A shell the user has never spoken to cannot legitimately be asking for
+      // attention. At app boot the restored panes emit prompts (idle), banner
+      // chimes (bell), or startup escapes that the user did not ask for — none
+      // are actionable until they have actually engaged with the session.
+      if (!this.hasReceivedUserInput) return;
       // Detector emits with sessionId='__pending__'; rewrite with our real id.
       this._status = 'awaiting-input';
       this.emit('attention', { ...ev, sessionId: this.id });
@@ -96,7 +108,17 @@ export class Session extends EventEmitter {
     if (this._status === 'exited') return;
     // Any user input clears the awaiting-input state.
     if (this._status === 'awaiting-input') this._status = 'running';
-    this.pty.write(typeof data === 'string' ? data : data.toString('utf8'));
+    const str = typeof data === 'string' ? data : data.toString('utf8');
+    // Record that the user has spoken to this session, so the attention gate
+    // can release. Focus-in/out reports (ESC[I / ESC[O) reach this method
+    // through term.onData when xterm's DOM element gains or loses focus —
+    // they must reach the PTY (apps like vim use them) but must not count as
+    // user typing, otherwise opening the app and clicking elsewhere would
+    // unlock the gate for every session.
+    if (str.length > 0 && !isXtermFocusReport(str)) {
+      this.hasReceivedUserInput = true;
+    }
+    this.pty.write(str);
   }
 
   resize(cols: number, rows: number): void {
