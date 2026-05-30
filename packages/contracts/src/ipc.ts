@@ -38,6 +38,8 @@ export const IpcChannel = {
   ResumeCancel: 'core.resume.cancel',
   ChromeMenuPopup: 'core.chrome.menu-popup',
   ChromeWindowControl: 'core.chrome.window-control',
+  ChromeAppInfo: 'core.chrome.app-info',
+  ChromeOpenExternal: 'core.chrome.open-external',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -157,6 +159,22 @@ export const ChromeMenuPopupPayloadSchema = z.object({
  * Used by the custom in-window titlebar on Windows/Linux. */
 export const ChromeWindowControlPayloadSchema = z.object({
   action: z.enum(['minimize', 'maximize', 'close']),
+});
+
+/** Renderer asks main for runtime info to populate the About dialog. */
+export const ChromeAppInfoResponseSchema = z.object({
+  version:  z.string(),
+  electron: z.string(),
+  chromium: z.string(),
+  node:     z.string(),
+  v8:       z.string(),
+  os:       z.string(),
+});
+export type ChromeAppInfoResponse = z.infer<typeof ChromeAppInfoResponseSchema>;
+
+/** Renderer asks main to open a URL in the OS default browser. About dialog links. */
+export const ChromeOpenExternalPayloadSchema = z.object({
+  url: z.string().url(),
 });
 
 export const SessionCreateForPanePayloadSchema = z.object({

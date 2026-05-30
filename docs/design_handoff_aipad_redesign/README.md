@@ -39,6 +39,14 @@ design_handoff_aipad_redesign/
 
 ---
 
+## Revision log
+
+### 2026-05-30 — collapsed sidebar + tab close target
+- **Collapsed sidebar rail (new).** Added a ~56px rail state for the sessions panel, toggled via `Mod+B`. Chips-only triage with hover flyouts. Full spec in screen **11** below; component details under *Sidebar → collapsed state*.
+- **Tab close button enlarged.** The tab `×` hit target went from a bare 14×14 / 11px glyph to an 18×18 / 14px button with a `var(--bg-3)` hover background and `var(--text-1)` hover color. Same treatment applied to the markdown-pane mini-tabs for consistency. See *TabBar* spec.
+
+---
+
 ## Tech notes for an Electron renderer
 
 A few things in this design require Electron-specific wiring; everything else is normal renderer work.
@@ -59,7 +67,7 @@ The README in `vanilla-ts/` covers this in detail.
 
 ## Screens
 
-There are nine screens, plus three app-icon directions. Numbered in the order they appear on the preview page.
+There are eleven screens, plus three app-icon directions. Numbered in the order they appear on the preview page.
 
 ### 1. Main · single session
 **Purpose:** baseline state with one active session.
@@ -220,6 +228,49 @@ Close pane      ⌘W          (red, danger style; disabled when not in split)
 - Per-session "Copy" must read the actual terminal selection from xterm.js (`term.getSelection()`). Disable the item when the selection is empty (subscribe to xterm's `onSelectionChange`).
 - "Paste" should use `navigator.clipboard.readText()` (requires user gesture which the right-click provides). Disable the item when the clipboard is empty — but check this asynchronously and rebuild the menu when the API resolves, since clipboard access can be slow.
 
+### 10. About dialog (new)
+**Purpose:** standard application identity panel — opened from `Help → About AI.Pad`. Shows app version + runtime versions (Electron / Chromium / Node / V8) so users can attach precise environment info when filing issues.
+
+**Layout.** 440px wide modal, centered with the same scrim. Standard `aip-modal` header (`ABOUT` crumb + close ×), then four stacked regions:
+
+1. **Identity row** — 64×64 app icon (with subtle drop-shadow), to the right: app name (20px Inter weight 600), version line (`Version 1.0.0 (build 2026.05.27)` in mono 12px), and the product tagline.
+2. **Detail rows** — key/value pairs in mono 12px. Key column is 78px wide, uppercase 10.5px `var(--text-4)`. Rows: **Commit** (hash + branch dimmed), **Electron**, **Chromium**, **Node**, **V8**, **OS**.
+3. **Links row** — `Website` · `Release notes` · `Acknowledgements` · `Report an issue`, accent-colored with soft underline. Each opens in the default browser via `shell.openExternal(url)`.
+4. **Footer** — copyright + license on the left, `Copy info` (ghost) and `OK` (primary) buttons on the right.
+
+**Behavior:**
+- Read live versions from `process.versions` (renderer side) — never hardcode. Wrap in a small `getAboutInfo()` helper in the main process that returns `{ electron, chromium, node, v8, os }` and exposes it via `contextBridge`.
+- Read app version + build date from `app.getVersion()` and your build pipeline (CI sets `BUILD_DATE` env var → injected at build time).
+- **Copy info** writes a plain-text block to clipboard (`navigator.clipboard.writeText`) containing every detail row + version line, suitable for pasting into a GitHub issue. Show a 2s "Copied" toast or briefly swap the button label.
+- `Esc` and `OK` both close. Closing returns focus to whichever menu item opened it.
+
+**Edge cases:**
+- Long OS strings (e.g. Linux distros with kernel info) → allow the value column to wrap to a second line; keep alignment by `align-items: baseline` on the row.
+- No build date → omit the `(build …)` suffix entirely rather than showing `(build undefined)`.
+
+---
+
+### 11. Sidebar · collapsed rail (new)
+**Purpose:** reclaim horizontal space for the terminal while keeping at-a-glance triage of every session. Toggled with `Mod+B` (the "Toggle sidebar" action already in the command palette).
+
+**Layout.** The 260px sidebar collapses to a **~56px rail**, same `var(--bg-1)` background and right border. Top → bottom:
+1. **Header (45px):** a single centered expand chevron `›` (ghost icon button, 26×26, 5px radius). Click or `Mod+B` re-expands to 260px.
+2. **Status summary strip:** the 4-cell overview collapses to a centered vertical stack of `dot + count` pairs (mono 11px, tabular-nums), **non-zero statuses only**, in attention-sort order (await → limited → running → idle). Bottom border `1px var(--border-1)`.
+3. **Session chips:** one 44px-tall row per session, chip centered. Chip is the same 26×26 kind chip (`PS` / `CC` / `CX`) carrying its status corner-dot; the awaiting chip keeps the soft glow ring. Active session gets `var(--bg-3)` background + 2px accent left border (mirrors the expanded row). Hover gives a `var(--bg-2)` background.
+4. **Footer:** stacked ghost buttons — `+` (new session, `Mod+N`) and `⌘K` (command palette).
+
+**Hover flyout.** Hovering a chip pops a card to the right (`left: 100%`, 10px gap, `var(--bg-2)`, 1px `var(--border-2)`, 8px radius, drop shadow, small left-pointing notch). Contents: status dot + session name (mono 12.5px), cwd (mono 10.5px `var(--text-4)`, ellipsis), and a pill `<StatusBadge>` with time. The flyout is `pointer-events: none` — it's a preview, not a menu; right-click still opens the session context menu.
+
+**Behavior:**
+- `Mod+B` toggles expanded ↔ collapsed; persist the choice per window.
+- Collapsed state is purely a render swap — same session data, same sort order, same active session.
+- Clicking a chip activates that session/tab exactly like the expanded row.
+- On very small heights, the chip list scrolls; header, status strip, and footer stay pinned.
+
+**Edge cases:**
+- Long session names in the flyout → ellipsis; the flyout has a `min-width` of 232px and grows to fit short names only.
+- Idle sessions show no corner-dot on the chip (consistent with the expanded row) and don't contribute a row to the status summary strip.
+
 ---
 
 ## Component spec
@@ -236,6 +287,7 @@ All sizes are in CSS pixels at 1× scale. The vanilla-ts files in `vanilla-ts/` 
 - Each tab: 160-220px width, `padding: 0 14px`, JetBrains Mono 12px, right border `1px solid var(--border-1)`.
 - Active tab: background flips to `var(--bg-0)` (matches the terminal pane below) and a 2px accent stripe sits along the top edge.
 - Awaiting-state tabs get a soft glow ring on the status dot.
+- **Close button:** an 18×18px button (4px radius) holding a 14px `×` glyph in `var(--text-4)`, sitting at the right edge of the tab. On hover: `var(--bg-3)` background + `var(--text-1)` glyph. (The same close-button treatment is used on the markdown-pane mini-tabs.)
 - After the last tab: a 36×36 `+` button (opens the New session dialog).
 
 ### Sidebar — 260px wide
@@ -244,6 +296,9 @@ All sizes are in CSS pixels at 1× scale. The vanilla-ts files in `vanilla-ts/` 
 - **Status overview strip:** 4 equal cells with vertical dividers. Each cell: status-color dot + count (mono 16px, tabular-nums) + tiny uppercase label.
 - **Session row** (described below).
 - **Footer (32px):** top border, mono 10.5px. Left: `⌘K palette` (auto-translated to `Ctrl+K` on Win/Linux). Right: `N active`.
+
+#### Sidebar — collapsed state (~56px)
+Toggled with `Mod+B`. Replaces the 260px panel with a chips-only rail. See screen **11** for the full layout, hover-flyout, and behavior spec. Same `var(--bg-1)` background and right border; header chevron expands it back; status overview collapses to a vertical `dot + count` stack; each session is a 44px row with the centered 26×26 kind chip; footer stacks `+` and `⌘K`.
 
 ### Session row
 - Padding: `12px 14px 12px 16px`. Active row gets `background: var(--bg-3)` + a 2px accent left border.
@@ -270,13 +325,14 @@ All use mono. Default is **pill**. The `status-badge.ts` file in `vanilla-ts/` s
 | Surface | Trigger | Behavior |
 | --- | --- | --- |
 | Tab | Click | Activate tab; pane swaps with no transition. |
-| Tab | Middle-click or `×` | Close tab with confirm if status is `running` or `awaiting`. |
+| Tab | Middle-click or `×` | Close tab with confirm if status is `running` or `awaiting`. The `×` is an 18×18 hover-highlighted button. |
 | Tab `+` | Click | Open New Session dialog (see section 8). |
 | Session row | Click | Activate that tab (rows mirror tabs 1:1). |
 | Session row | Right-click | Context menu: Rename, Duplicate, Move to new window, separator, Close. |
 | Tab | Right-click | Context menu: same set as session row. |
 | Terminal pane | Right-click | Context menu: Copy / Paste / Select all / Find / Clear / Split / Close pane (see section 9). |
 | Status overview cell | Click | Filter sidebar to that status; click again to clear. |
+| Sidebar | `Mod+B` | Toggle between the 260px expanded panel and the ~56px collapsed rail (see screen 11). Persisted per window. |
 | Command palette | `Mod+K` | Open palette. `↑↓` navigates, `↵` opens, `Esc` closes. |
 | Settings input chips | Click | Replace the input value with the chip's text. |
 | Auto-resume toggle | Click | Persist via existing settings store. |
