@@ -47,14 +47,30 @@ describe('AttentionDetector + real PTY', () => {
     const events: AttentionEvent[] = [];
     manager.on('sessionAttention', (ev) => events.push(ev));
 
-    // Let the prompt print first to flush startup noise.
-    await new Promise((r) => setTimeout(r, 400));
+    // Sync on real shell output rather than wall-clock delays — startup timing
+    // varies enough on hosted CI to spill banner output past any fixed flush
+    // window and into the assertion buffer.
+    let stdoutBuf = '';
+    session.on('data', (buf: Buffer) => { stdoutBuf += buf.toString('utf8'); });
 
-    // Clear any events from startup before the test command.
+    // Phase 1 — drain startup. Wait for our marker to round-trip; that
+    // proves the prompt has finished printing the banner.
+    const drainMarker = `__AIPAD_DRAIN_${Date.now()}__`;
+    session.write(`echo ${drainMarker}\r`);
+    await waitFor(() => stdoutBuf.includes(drainMarker));
     events.length = 0;
 
-    session.write(`echo hello\r`);
-    await new Promise((r) => setTimeout(r, 1200));
+    // Phase 2 — write the actual ordinary-output command and wait for its
+    // echo to land. After this, the only thing that could surface in events
+    // is a detector signal mistakenly attributed to ordinary stdout.
+    const echoMarker = `hello_${Date.now()}`;
+    stdoutBuf = '';
+    session.write(`echo ${echoMarker}\r`);
+    await waitFor(() => stdoutBuf.includes(echoMarker));
+
+    // Small tail to let any prompt-redraw bytes flow through the detectors
+    // — this is the window where a stray signal would actually appear.
+    await new Promise((r) => setTimeout(r, 200));
 
     expect(events).toHaveLength(0);
   });
