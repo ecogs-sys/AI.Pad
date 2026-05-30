@@ -4,8 +4,8 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
 function Invoke-Native {
-    & @args
-    if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): $args" }
+    & $args[0] ($args | Select-Object -Skip 1)
+    if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): $($args -join ' ')" }
 }
 
 # --- prerequisite: Node.js >= 20 ---
