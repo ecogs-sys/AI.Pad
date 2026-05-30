@@ -203,3 +203,90 @@ export function renderSidebar({
     ]),
   ]);
 }
+
+// ─── Collapsed sidebar rail (~56px) ────────────────────────────────────
+// Chips-only triage view, toggled with Mod+B. Each chip keeps its status
+// corner-dot; hovering a chip reveals a flyout previewing name + cwd + status.
+function renderCollapsedRailRow(
+  session: Session, active: boolean, badgeStyle: BadgeStyle,
+  onClick?: (s: Session) => void,
+): HTMLElement {
+  const showCorner = session.status !== 'idle';
+  const s = STATUS_COLOR_VAR(session.status);
+  return h('div', {
+    class: 'aip-rail__row' + (active ? ' aip-rail__row--active' : ''),
+    attrs: { 'data-session-id': session.id, title: session.name },
+    on: { click: () => onClick?.(session) },
+  }, [
+    h('div', { class: 'aip-rail__chip' }, [
+      session.kind,
+      showCorner && h('span', {
+        class: 'aip-rail__chip-corner',
+        attrs: { 'data-status': session.status },
+      }),
+    ]),
+    // hover flyout (CSS-driven visibility)
+    h('div', { class: 'aip-rail__flyout' }, [
+      h('div', { class: 'aip-rail__flyout-top' }, [
+        h('span', { class: 'aip-rail__flyout-dot', style: { background: s } }),
+        h('span', { class: 'aip-rail__flyout-name', text: session.name }),
+      ]),
+      h('div', { class: 'aip-rail__flyout-cwd', text: session.cwd }),
+      renderStatusBadge({ status: session.status, time: session.time, style: 'pill' }),
+    ]),
+  ]);
+}
+
+// small helper: maps a status to its CSS color variable
+function STATUS_COLOR_VAR(status: Status): string {
+  return `var(--st-${status})`;
+}
+
+export interface CollapsedSidebarOptions {
+  sessions: Session[];
+  activeSessionId?: string | null;
+  badgeStyle?: BadgeStyle;
+  onSessionClick?: (s: Session) => void;
+  onNewSession?: () => void;
+  onExpand?: () => void;
+}
+
+export function renderCollapsedSidebar({
+  sessions, activeSessionId = null, badgeStyle = 'pill',
+  onSessionClick, onNewSession, onExpand,
+}: CollapsedSidebarOptions): HTMLElement {
+  const order: Status[] = ['awaiting', 'limited', 'running', 'idle'];
+  const counts: Record<Status, number> = { running: 0, awaiting: 0, limited: 0, idle: 0 };
+  for (const s of sessions) counts[s.status]++;
+
+  return h('div', { class: 'aip-rail' }, [
+    h('div', { class: 'aip-rail__header' }, [
+      h('span', {
+        class: 'aip-rail__expand', text: '›',
+        attrs: { title: `Expand sidebar (${kbd('Mod+B')})` },
+        on: { click: () => onExpand?.() },
+      }),
+    ]),
+    // compact status summary — dot + count, non-zero only
+    h('div', { class: 'aip-rail__summary' },
+      order.filter((k) => counts[k] > 0).map((k) =>
+        h('div', { class: 'aip-rail__summary-item', attrs: { title: `${counts[k]} ${k}` } }, [
+          h('span', { class: 'aip-rail__summary-dot', style: { background: `var(--st-${k})` } }),
+          h('span', { class: 'aip-rail__summary-count', text: String(counts[k]) }),
+        ]))),
+    h('div', { class: 'aip-rail__list' },
+      sessions.map((s) => renderCollapsedRailRow(
+        s, s.id === activeSessionId, badgeStyle, onSessionClick))),
+    h('div', { class: 'aip-rail__footer' }, [
+      h('span', {
+        class: 'aip-rail__icon-btn aip-rail__icon-btn--new', text: '+',
+        attrs: { title: `New session (${kbd('Mod+N')})` },
+        on: { click: () => onNewSession?.() },
+      }),
+      h('span', {
+        class: 'aip-rail__icon-btn aip-rail__icon-btn--palette', text: kbd('Mod+K'),
+        attrs: { title: 'Command palette' },
+      }),
+    ]),
+  ]);
+}
