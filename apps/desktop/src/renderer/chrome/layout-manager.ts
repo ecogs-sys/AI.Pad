@@ -1,4 +1,4 @@
-import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings } from '@aipad/contracts';
+import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse } from '@aipad/contracts';
 import { IpcChannel } from '@aipad/contracts';
 import type { PreloadBridge } from '@aipad/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
@@ -6,6 +6,7 @@ import { Sidebar, type SidebarRowVm } from './sidebar.js';
 import { emptyState, type ChromeState, type SessionState } from './state.js';
 import { showNewSessionDialog, showRenameDialog } from './new-session-dialog.js';
 import { showSettingsDialog } from './settings-dialog.js';
+import { showAboutDialog } from './about-dialog.js';
 
 export interface LayoutDeps {
   bridge: PreloadBridge;
@@ -150,6 +151,18 @@ export class LayoutManager {
     }
     if (!result) return;
     await this.bridge.send(IpcChannel.SettingsUpdate, result);
+  }
+
+  async openAbout(): Promise<void> {
+    const mount = document.getElementById('dialog-mount');
+    if (!mount) return;
+    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    try {
+      const info = (await this.bridge.send(IpcChannel.ChromeAppInfo)) as ChromeAppInfoResponse;
+      await showAboutDialog(mount, info);
+    } finally {
+      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+    }
   }
 
   /** Cancel a pending auto-resume (badge cancel control). */
@@ -315,7 +328,7 @@ export class LayoutManager {
     this.state.sidebarOpen = !this.state.sidebarOpen;
     this.bodyEl.classList.toggle('sidebar-collapsed', !this.state.sidebarOpen);
     document.body.classList.toggle('sidebar-collapsed', !this.state.sidebarOpen);
-    const widthPx = this.state.sidebarOpen ? 260 : 36;
+    const widthPx = this.state.sidebarOpen ? 260 : 56;
     void this.bridge.send(IpcChannel.LayoutSetSidebarWidth, { widthPx });
     this.render();
   }

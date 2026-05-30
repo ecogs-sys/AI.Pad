@@ -190,6 +190,17 @@
     });
   }
 
+  function screenAbout() {
+    return buildShell({
+      tabs: TABS_MULTI, subtitle: 'Help · About AI.Pad',
+      children: [
+        renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
+        renderTerminalPane({ lines: TERM_DEFAULT }),
+        renderScrim(renderAboutDialog({})),
+      ],
+    });
+  }
+
   function screenMarkdown() {
     return buildShell({
       tabs: TABS_MULTI, subtitle: 'claude · plan · reviewing docs/migration.md',
@@ -298,6 +309,7 @@
   root.appendChild(section('Empty state', 'first launch / no sessions',      screenEmpty()));
   root.appendChild(section('Settings', 'auto-resume rule modal',             screenSettings()));
   root.appendChild(section('Command palette', '⌘K quick switcher',           screenPalette()));
+  root.appendChild(section('About', 'help menu · version + runtime info',    screenAbout()));
   root.appendChild(section('Markdown preview', 'sliding right pane',         screenMarkdown()));
   root.appendChild(section('New session', 'configure type · cwd · shell · prompt', screenNewSession(), 980));
   root.appendChild(section('Context menu', 'right-click on terminal area',         screenContextMenu()));
