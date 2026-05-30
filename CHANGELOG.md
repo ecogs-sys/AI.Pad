@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/ecogs-sys/AI.Pad/compare/aipad-v0.4.0...aipad-v0.4.1) (2026-05-30)
+
+
+### Bug Fixes
+
+* **ci:** exclude e2e package from root pnpm test ([aa3c6af](https://github.com/ecogs-sys/AI.Pad/commit/aa3c6aff10684181c22c75666284c63c461bea45))
+
 ## [0.4.0](https://github.com/ecogs-sys/AI.Pad/compare/aipad-v0.3.0...aipad-v0.4.0) (2026-05-30)
 
 
