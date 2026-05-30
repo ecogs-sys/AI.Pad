@@ -16,6 +16,10 @@ const sidebarOverviewEl = document.getElementById('sidebar-overview');
 const sidebarToggleEl = document.getElementById('sidebar-toggle')!;
 const sidebarNewEl = document.getElementById('sidebar-new');
 const sidebarSortEl = document.getElementById('sidebar-sort');
+const sidebarRailSummaryEl = document.getElementById('sidebar-rail-summary');
+const sidebarRailListEl = document.getElementById('sidebar-rail-list');
+const sidebarRailExpandEl = document.getElementById('sidebar-rail-expand');
+const sidebarRailNewEl = document.getElementById('sidebar-rail-new');
 const bodyEl = document.getElementById('body')!;
 const titlebarEl = document.getElementById('titlebar')!;
 
@@ -39,6 +43,10 @@ const manager = new LayoutManager({
     toggleEl: sidebarToggleEl,
     newEl: sidebarNewEl,
     sortEl: sidebarSortEl,
+    railSummaryEl: sidebarRailSummaryEl,
+    railListEl: sidebarRailListEl,
+    railExpandEl: sidebarRailExpandEl,
+    railNewEl: sidebarRailNewEl,
     callbacks: {
       onRowClick: (id) => manager.focus(id),
       onToggle: () => manager.toggleSidebar(),

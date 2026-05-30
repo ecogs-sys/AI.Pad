@@ -8,7 +8,7 @@ const TITLEBAR_PX = 32;
 const TAB_BAR_PX = 36;
 const CHROME_TOP_PX = TITLEBAR_PX + TAB_BAR_PX; // 68
 const SIDEBAR_OPEN_PX = 260; // matches CSS --sidebar-w
-const SIDEBAR_COLLAPSED_PX = 36;
+const SIDEBAR_COLLAPSED_PX = 56;
 
 export interface ViewLoadEntry {
   url?: string;

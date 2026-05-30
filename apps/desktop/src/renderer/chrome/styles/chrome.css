@@ -80,11 +80,16 @@ html, body {
 }
 
 .tab .close {
-  width: 14px; height: 14px;
+  width: 18px; height: 18px;
+  margin-right: -4px;
+  border-radius: 4px;
   display: inline-flex; align-items: center; justify-content: center;
-  color: var(--text-4); font-size: 11px;
+  color: var(--text-4); font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
 }
-.tab .close:hover { color: var(--text-1); }
+.tab .close:hover { background: var(--bg-3); color: var(--text-1); }
 
 #new-tab { width: 36px; padding: 0; background: transparent; color: var(--text-3); cursor: pointer; border: none; font-size: 16px; }
 #new-tab:hover { color: var(--text-1); }
@@ -96,7 +101,7 @@ html, body {
   height: 100%;
   min-height: 0;
 }
-#body.sidebar-collapsed { grid-template-columns: 36px 1fr; }
+#body.sidebar-collapsed { grid-template-columns: 56px 1fr; }
 
 #sidebar {
   background: var(--bg-1);
@@ -320,18 +325,134 @@ html, body {
   color: var(--text-1);
 }
 
-/* Collapsed sidebar: only the icon tile shows */
-body.sidebar-collapsed .sidebar-row .sr-title,
-body.sidebar-collapsed .sidebar-row .sr-cwd,
-body.sidebar-collapsed .sidebar-row .sr-pill,
-body.sidebar-collapsed #sidebar-label,
-body.sidebar-collapsed #sidebar-overview,
-body.sidebar-collapsed #sidebar-sort,
-body.sidebar-collapsed #sidebar-new,
-body.sidebar-collapsed #sidebar-count { display: none; }
-body.sidebar-collapsed #sidebar-header { padding: 0; justify-content: center; }
-body.sidebar-collapsed #sidebar-footer { padding: 0; justify-content: center; }
-body.sidebar-collapsed .sidebar-row { padding: 8px; }
+/* Sidebar collapsed: swap the expanded 260px panel for the 56px rail. */
+#sidebar-rail { display: none; }
+body.sidebar-collapsed #sidebar { display: none; }
+body.sidebar-collapsed #sidebar-rail { display: flex; }
+
+/* ── Sidebar — collapsed rail (~56px) ──────────────────────────────────────
+   Ported from docs/design_handoff_aipad_redesign/vanilla-ts/components.css
+   (.aip-rail). Chips-only triage view, toggled with Mod+B. */
+.aip-rail {
+  background: var(--bg-1);
+  border-right: 1px solid var(--border-1);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.aip-rail__header {
+  height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid var(--border-1);
+  flex-shrink: 0;
+}
+.aip-rail__expand {
+  width: 26px; height: 26px; border-radius: 5px;
+  background: transparent; border: 0; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-3); font-size: 14px; line-height: 1; cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+.aip-rail__expand:hover { background: var(--bg-3); color: var(--text-1); }
+.aip-rail__summary {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 11px 0; border-bottom: 1px solid var(--border-1);
+  flex-shrink: 0;
+}
+.aip-rail__summary:empty { display: none; }
+.aip-rail__summary-item { display: flex; align-items: center; gap: 5px; }
+.aip-rail__summary-dot { width: 6px; height: 6px; border-radius: 50%; }
+.aip-rail__summary-count {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--text-2); font-variant-numeric: tabular-nums;
+}
+.aip-rail__list { flex: 1; overflow-y: auto; padding-top: 4px; }
+.aip-rail__row {
+  position: relative;
+  height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+.aip-rail__row:hover { background: var(--bg-2); }
+.aip-rail__row--active { background: var(--bg-3); border-left-color: var(--accent); }
+.aip-rail__chip {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--bg-3); border: 1px solid var(--border-2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+  color: var(--text-2); letter-spacing: 0.4px; position: relative;
+}
+.aip-rail__row--active .aip-rail__chip { color: var(--text-1); }
+.aip-rail__chip-corner {
+  position: absolute; top: -3px; right: -3px;
+  width: 9px; height: 9px; border-radius: 50%;
+  border: 2px solid var(--bg-1);
+}
+.aip-rail__chip-corner[data-status="running"]  { background: var(--st-running); }
+.aip-rail__chip-corner[data-status="awaiting"] {
+  background: var(--st-awaiting);
+  box-shadow: 0 0 0 2px var(--st-awaiting-ring);
+}
+.aip-rail__chip-corner[data-status="limited"]  { background: var(--st-limited); }
+/* Hover flyout — name + cwd + status preview. pointer-events:none so it's a
+ * preview, not a menu (right-click still hits the row underneath). */
+.aip-rail__flyout {
+  position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+  margin-left: 10px; z-index: 30; min-width: 232px;
+  background: var(--bg-2); border: 1px solid var(--border-2); border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  padding: 11px 13px; display: none; flex-direction: column; gap: 7px;
+  pointer-events: none;
+}
+.aip-rail__row:hover .aip-rail__flyout { display: flex; }
+.aip-rail__flyout::before {
+  content: ""; position: absolute; left: -5px; top: 50%;
+  transform: translateY(-50%) rotate(45deg); width: 9px; height: 9px;
+  background: var(--bg-2); border-left: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--border-2);
+}
+.aip-rail__flyout-top { display: flex; align-items: center; gap: 9px; }
+.aip-rail__flyout-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.aip-rail__flyout-name {
+  flex: 1; font-family: var(--font-mono); font-size: 12.5px; color: var(--text-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.aip-rail__flyout-cwd {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-4);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.aip-rail__flyout-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 10.5px;
+  padding: 2px 8px; border-radius: 999px;
+  line-height: 1.4; width: fit-content; max-width: 100%;
+}
+.aip-rail__flyout-pill .aip-rail__flyout-pill-dot { width: 5px; height: 5px; border-radius: 50%; }
+.aip-rail__flyout-pill-time { color: var(--text-3); }
+.aip-rail__flyout-pill.running  { color: var(--st-running);  background: var(--st-running-bg);  }
+.aip-rail__flyout-pill.running  .aip-rail__flyout-pill-dot { background: var(--st-running); }
+.aip-rail__flyout-pill.awaiting { color: var(--st-awaiting); background: var(--st-awaiting-bg); }
+.aip-rail__flyout-pill.awaiting .aip-rail__flyout-pill-dot { background: var(--st-awaiting); }
+.aip-rail__flyout-pill.limited  { color: var(--st-limited);  background: var(--st-limited-bg);  }
+.aip-rail__flyout-pill.limited  .aip-rail__flyout-pill-dot { background: var(--st-limited); }
+.aip-rail__flyout-pill.idle     { color: var(--text-3);      background: var(--st-idle-bg);     }
+.aip-rail__flyout-pill.idle     .aip-rail__flyout-pill-dot { background: var(--st-idle); }
+.aip-rail__footer {
+  border-top: 1px solid var(--border-1); padding: 8px 0;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex-shrink: 0;
+}
+.aip-rail__icon-btn {
+  width: 26px; height: 26px; border-radius: 5px;
+  background: transparent; border: 0; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-3); cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+.aip-rail__icon-btn:hover { background: var(--bg-3); color: var(--text-1); }
+.aip-rail__icon-btn--new { font-size: 16px; line-height: 1; }
+.aip-rail__icon-btn--palette { font-family: var(--font-mono); font-size: 11px; color: var(--text-4); }
 
 /* ── Dialogs ─────────────────────────────────────────────────────────────── */
 #dialog-mount {

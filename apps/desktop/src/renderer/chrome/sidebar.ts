@@ -56,6 +56,10 @@ export class Sidebar {
   private readonly toggleEl: HTMLElement;
   private readonly newEl: HTMLElement | null;
   private readonly sortEl: HTMLElement | null;
+  private readonly railSummaryEl: HTMLElement | null;
+  private readonly railListEl: HTMLElement | null;
+  private readonly railExpandEl: HTMLElement | null;
+  private readonly railNewEl: HTMLElement | null;
   private readonly callbacks: SidebarCallbacks;
   /** Attention-sort is on by default per design — toggleable via the ⇅ header button. */
   private attentionSort = true;
@@ -69,6 +73,10 @@ export class Sidebar {
     toggleEl: HTMLElement;
     newEl?: HTMLElement | null;
     sortEl?: HTMLElement | null;
+    railSummaryEl?: HTMLElement | null;
+    railListEl?: HTMLElement | null;
+    railExpandEl?: HTMLElement | null;
+    railNewEl?: HTMLElement | null;
     callbacks: SidebarCallbacks;
   }) {
     this.listEl = opts.listEl;
@@ -76,6 +84,10 @@ export class Sidebar {
     this.toggleEl = opts.toggleEl;
     this.newEl = opts.newEl ?? null;
     this.sortEl = opts.sortEl ?? null;
+    this.railSummaryEl = opts.railSummaryEl ?? null;
+    this.railListEl = opts.railListEl ?? null;
+    this.railExpandEl = opts.railExpandEl ?? null;
+    this.railNewEl = opts.railNewEl ?? null;
     this.callbacks = opts.callbacks;
     this.toggleEl.addEventListener('click', () => this.callbacks.onToggle());
     this.newEl?.addEventListener('click', () => this.callbacks.onNewSession());
@@ -85,6 +97,9 @@ export class Sidebar {
       this.render(this.lastRows, this.lastFocusedId);
     });
     this.sortEl?.classList.toggle('active', this.attentionSort);
+    // Rail (collapsed) wiring — expand mirrors toggle, new mirrors new-session.
+    this.railExpandEl?.addEventListener('click', () => this.callbacks.onToggle());
+    this.railNewEl?.addEventListener('click', () => this.callbacks.onNewSession());
   }
 
   render(rows: SidebarRowVm[], focusedId: SessionId | null): void {
@@ -92,6 +107,7 @@ export class Sidebar {
     this.lastFocusedId = focusedId;
     this.renderOverview(rows);
     const sorted = this.attentionSort ? this.sortByAttention(rows) : rows;
+    this.renderRail(sorted, focusedId);
     this.listEl.innerHTML = '';
     const now = Date.now();
     for (const row of sorted) {
@@ -246,6 +262,103 @@ export class Sidebar {
     if (row.info.status === 'running') return 'running';
     if (row.info.status === 'awaiting-input') return 'awaiting input';
     return 'idle';
+  }
+
+  /** Render the collapsed 56px rail — summary counts + chip rows + hover flyouts. */
+  private renderRail(sortedRows: SidebarRowVm[], focusedId: SessionId | null): void {
+    if (!this.railListEl) return;
+    const now = Date.now();
+
+    // Summary stack: non-zero statuses only, attention order (await → limited → running → idle).
+    if (this.railSummaryEl) {
+      const counts: Record<VisualStatus, number> = { awaiting: 0, limited: 0, running: 0, idle: 0 };
+      for (const row of sortedRows) counts[visualStatusFor(row)]++;
+      this.railSummaryEl.innerHTML = '';
+      const order: VisualStatus[] = ['awaiting', 'limited', 'running', 'idle'];
+      for (const key of order) {
+        if (counts[key] === 0) continue;
+        const item = document.createElement('div');
+        item.className = 'aip-rail__summary-item';
+        item.title = `${counts[key]} ${key}`;
+        const dot = document.createElement('span');
+        dot.className = 'aip-rail__summary-dot';
+        dot.style.background = `var(--st-${key})`;
+        const count = document.createElement('span');
+        count.className = 'aip-rail__summary-count';
+        count.textContent = String(counts[key]);
+        item.appendChild(dot);
+        item.appendChild(count);
+        this.railSummaryEl.appendChild(item);
+      }
+    }
+
+    // Chip rows (one per session).
+    this.railListEl.innerHTML = '';
+    for (const row of sortedRows) {
+      const rowEl = document.createElement('div');
+      rowEl.className =
+        'aip-rail__row' + (row.info.id === focusedId ? ' aip-rail__row--active' : '');
+      rowEl.dataset['sessionId'] = row.info.id;
+      rowEl.title = row.info.title || row.info.shell;
+
+      const chip = document.createElement('div');
+      chip.className = 'aip-rail__chip';
+      chip.textContent = SHELL_ICONS[row.info.shell] ?? '??';
+      const cornerStatus = this.cornerDotClass(row);
+      if (cornerStatus) {
+        const corner = document.createElement('span');
+        corner.className = 'aip-rail__chip-corner';
+        corner.dataset['status'] = cornerStatus;
+        chip.appendChild(corner);
+      }
+      rowEl.appendChild(chip);
+
+      // Hover flyout — pointer-events:none, preview only.
+      const flyout = document.createElement('div');
+      flyout.className = 'aip-rail__flyout';
+
+      const top = document.createElement('div');
+      top.className = 'aip-rail__flyout-top';
+      const flyDot = document.createElement('span');
+      flyDot.className = 'aip-rail__flyout-dot';
+      flyDot.style.background = `var(--st-${visualStatusFor(row)})`;
+      const flyName = document.createElement('span');
+      flyName.className = 'aip-rail__flyout-name';
+      flyName.textContent = row.info.title || row.info.shell;
+      top.appendChild(flyDot);
+      top.appendChild(flyName);
+      flyout.appendChild(top);
+
+      const cwd = document.createElement('div');
+      cwd.className = 'aip-rail__flyout-cwd';
+      cwd.textContent = row.info.cwd ?? '';
+      flyout.appendChild(cwd);
+
+      const pillStatus = this.pillStatusClass(row);
+      const pill = document.createElement('div');
+      pill.className = `aip-rail__flyout-pill ${pillStatus}`;
+      const pillDot = document.createElement('span');
+      pillDot.className = 'aip-rail__flyout-pill-dot';
+      pill.appendChild(pillDot);
+      const pillLabel = document.createElement('span');
+      pillLabel.textContent = this.pillLabel(row);
+      pill.appendChild(pillLabel);
+      const ageSec = Math.max(0, Math.floor((now - row.statusSinceMs) / 1000));
+      const pillTime = document.createElement('span');
+      pillTime.className = 'aip-rail__flyout-pill-time';
+      pillTime.textContent = `· ${formatAge(ageSec)}`;
+      pill.appendChild(pillTime);
+      flyout.appendChild(pill);
+
+      rowEl.appendChild(flyout);
+
+      rowEl.addEventListener('click', () => this.callbacks.onRowClick(row.info.id));
+      rowEl.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault();
+        this.showContextMenu(ev.clientX, ev.clientY, row.info.id);
+      });
+      this.railListEl.appendChild(rowEl);
+    }
   }
 
   private showContextMenu(x: number, y: number, sessionId: SessionId): void {

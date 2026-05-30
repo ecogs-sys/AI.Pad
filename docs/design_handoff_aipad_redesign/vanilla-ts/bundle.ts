@@ -817,6 +817,107 @@ function renderSettingsModal(opts: SettingsModalOptions = {}): HTMLElement {
   ]);
 }
 
+// ─── About dialog ────────────────────────────────────────────────────
+interface AboutDialogOptions {
+  appName?:    string;
+  tagline?:    string;
+  version?:    string;
+  build?:      string;
+  commit?:     string;
+  branch?:     string;
+  electron?:   string;
+  chromium?:   string;
+  node?:       string;
+  v8?:         string;
+  os?:         string;
+  copyright?:  string;
+  license?:    string;
+  links?:      Array<{ label: string; href?: string; onClick?: () => void }>;
+  onCopyInfo?: () => void;
+  onOk?:       () => void;
+  onClose?:    () => void;
+}
+
+function renderAboutDialog(opts: AboutDialogOptions = {}): HTMLElement {
+  const {
+    appName   = 'AI.Pad',
+    tagline   = 'Run many agents · never miss a prompt',
+    version   = '1.0.0',
+    build     = '2026.05.27',
+    commit    = 'a3f91c2',
+    branch    = 'main',
+    electron  = '33.2.0',
+    chromium  = '130.0.6723.44',
+    node      = '20.18.0',
+    v8        = '13.0.245.16',
+    os        = 'Windows 11 · 23H2 (x64)',
+    copyright = '© 2026 AI.Pad contributors',
+    license   = 'Released under the MIT License',
+    links     = [
+      { label: 'Website' },
+      { label: 'Release notes' },
+      { label: 'Acknowledgements' },
+      { label: 'Report an issue' },
+    ],
+    onCopyInfo, onOk, onClose,
+  } = opts;
+
+  const row = (key: string, ...vals: Array<HTMLElement | string>) =>
+    h('div', { class: 'aip-about__row' }, [
+      h('span', { class: 'aip-about__key', text: key }),
+      h('span', { class: 'aip-about__val' }, vals as any),
+    ]);
+
+  return h('div', { class: 'aip-modal aip-modal--about' }, [
+    h('div', { class: 'aip-modal__header' }, [
+      h('span', { class: 'aip-modal__crumb', text: 'About' }),
+      h('div', { class: 'aip-modal__close', text: '×', on: { click: () => onClose?.() } }),
+    ]),
+
+    h('div', { class: 'aip-about__identity' }, [
+      h('div', { class: 'aip-about__icon' }, [appGlyph()]),
+      h('div', { class: 'aip-about__id-text' }, [
+        h('div', { class: 'aip-about__name', text: appName }),
+        h('div', { class: 'aip-about__version' }, [
+          `Version ${version} `,
+          h('span', { class: 'aip-about__build', text: `(build ${build})` }),
+        ] as any),
+        h('div', { class: 'aip-about__tagline', text: tagline }),
+      ]),
+    ]),
+
+    h('div', { class: 'aip-about__details' }, [
+      row('Commit',   commit, h('span', { class: 'aip-about__dim', text: ` · ${branch}` })),
+      row('Electron', electron),
+      row('Chromium', chromium),
+      row('Node',     node),
+      row('V8',       v8),
+      row('OS',       os),
+    ]),
+
+    h('div', { class: 'aip-about__links' },
+      links.map((l) => h('a', {
+        class: 'aip-about__link',
+        text: l.label,
+        attrs: l.href ? { href: l.href } : {},
+        on:   l.onClick ? { click: () => l.onClick!() } : {},
+      }))),
+
+    h('div', { class: 'aip-modal__footer' }, [
+      h('div', { class: 'aip-about__legal' }, [
+        h('div', { class: 'aip-about__legal-line', text: copyright }),
+        h('div', { class: 'aip-about__legal-line', text: license }),
+      ]),
+      h('div', { style: 'display:flex;gap:8px' }, [
+        h('button', { class: 'aip-btn aip-btn--ghost',   text: 'Copy info',
+                      on: { click: () => onCopyInfo?.() } }),
+        h('button', { class: 'aip-btn aip-btn--primary', text: 'OK',
+                      on: { click: () => onOk?.() } }),
+      ]),
+    ]),
+  ]);
+}
+
 // ─── Command palette ─────────────────────────────────────────────────
 interface PaletteItem {
   kind: string;           // 2-char chip
