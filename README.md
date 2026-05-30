@@ -159,6 +159,26 @@ there.
 > and you may need to allow it explicitly. This is expected: until AI.Pad ships signed
 > releases, build and run it on your own machine, where an unsigned local build is fine.
 
+### Build an installer (one command)
+
+Clone the repo, then run the script for your OS from the repo root. It installs
+dependencies (or skips them if already present), compiles the app, and produces a
+platform installer in `apps/desktop/release/<version>/`.
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\build.ps1
+```
+
+**macOS / Linux:**
+```bash
+bash scripts/build.sh
+```
+
+> **Prerequisites:** Node.js ≥ 20 and pnpm (`corepack enable`) must be installed first.
+> See the [Prerequisites](#prerequisites) section above for platform-specific build
+> toolchain requirements (Visual Studio Build Tools on Windows, Xcode CLT on macOS).
+
 ### Project scripts
 
 | Command | Effect |
