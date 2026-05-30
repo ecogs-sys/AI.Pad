@@ -4,7 +4,9 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
 function Invoke-Native {
-    & $args[0] ($args | Select-Object -Skip 1)
+    $cmd = $args[0]
+    $cmdArgs = $args[1..($args.Length - 1)]
+    & $cmd @cmdArgs
     if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): $($args -join ' ')" }
 }
 
