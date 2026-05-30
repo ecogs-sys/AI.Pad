@@ -53,6 +53,15 @@ describe('AttentionDetector + real PTY', () => {
     let stdoutBuf = '';
     session.on('data', (buf: Buffer) => { stdoutBuf += buf.toString('utf8'); });
 
+    // Neutralize bash's default prompt. Ubuntu 24's /etc/bash.bashrc + ~/.bashrc
+    // set PROMPT_COMMAND to a terminal-title OSC (\x1b]0;user@host:cwd\x07)
+    // whose terminating BEL byte leaks through AttentionDetector as a 'bell'
+    // signal on every prompt redraw — the detector currently only tracks its
+    // own AI.Pad-specific OSC prefix and treats any other OSC's terminator as
+    // a standalone bell. TODO: teach AttentionDetector to skip BEL bytes that
+    // close any \x1b]<digits>;... OSC, then drop this workaround.
+    session.write(`unset PROMPT_COMMAND; export PS1='$ '\r`);
+
     // Phase 1 — drain startup. Wait for our marker to round-trip; that
     // proves the prompt has finished printing the banner.
     const drainMarker = `__AIPAD_DRAIN_${Date.now()}__`;
