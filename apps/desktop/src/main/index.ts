@@ -1,10 +1,10 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { homedir } from 'node:os';
+import { homedir, release as osRelease } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@aipad/core';
-import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode } from '@aipad/contracts';
-import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema } from '@aipad/contracts';
+import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse } from '@aipad/contracts';
+import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema } from '@aipad/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
@@ -171,6 +171,30 @@ ipcMain.handle(IpcChannel.ChromeWindowControl, (_e, raw): { ok: true } | { error
     if (chromeWindow.isMaximized()) chromeWindow.unmaximize();
     else chromeWindow.maximize();
   } else if (parsed.data.action === 'close') chromeWindow.close();
+  return { ok: true };
+});
+
+// IPC: About dialog asks for runtime info — versions + OS string.
+ipcMain.handle(IpcChannel.ChromeAppInfo, (): ChromeAppInfoResponse => {
+  const platformLabel = process.platform === 'win32' ? 'Windows'
+                     : process.platform === 'darwin' ? 'macOS'
+                     : process.platform === 'linux' ? 'Linux'
+                     : process.platform;
+  return {
+    version:  app.getVersion(),
+    electron: process.versions['electron'] ?? '',
+    chromium: process.versions['chrome'] ?? '',
+    node:     process.versions['node'] ?? '',
+    v8:       process.versions['v8'] ?? '',
+    os:       `${platformLabel} · ${osRelease()} (${process.arch})`,
+  };
+});
+
+// IPC: About dialog opens a link in the OS default browser via shell.openExternal.
+ipcMain.handle(IpcChannel.ChromeOpenExternal, (_e, raw): { ok: true } | { error: string } => {
+  const parsed = ChromeOpenExternalPayloadSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.message };
+  void shell.openExternal(parsed.data.url);
   return { ok: true };
 });
 

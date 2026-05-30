@@ -1,4 +1,4 @@
-import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView, shell } from 'electron';
+import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
 import { Bindings } from '@aipad/keymap';
 import { IpcChannel } from '@aipad/contracts';
 
@@ -66,10 +66,7 @@ function buildTemplates(
   ];
 
   const helpSubmenu: MenuItemConstructorOptions[] = [
-    {
-      label: 'Report Issue…',
-      click: () => { void shell.openExternal('https://github.com/ecogs-sys/AI.Pad/issues'); },
-    },
+    { label: 'About AI.Pad…', click: () => send('openAbout', chromeWindow) },
   ];
 
   return {
