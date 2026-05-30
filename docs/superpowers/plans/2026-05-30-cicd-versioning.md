@@ -220,15 +220,17 @@ Open `.github/workflows/release.yml`. Find the line:
 ```
 and replace it with:
 ```yaml
-        run: pnpm --filter @aipad/desktop dist --publish always
+        run: pnpm --filter @aipad/desktop dist -- --publish always
 ```
+
+The `--` separator between `dist` and `--publish always` is **mandatory** — without it, pnpm consumes `--publish` itself and the flag never reaches the underlying `electron-builder` script. Installers would build but never upload to the GitHub Release.
 
 Leave the surrounding `name:` and `env:` lines unchanged.
 
 - [ ] **Step 3.3: Verify the change**
 
-Run: `node -e "const s=require('fs').readFileSync('.github/workflows/release.yml','utf8'); if(!s.includes('dist --publish always')) { console.error('EDIT MISSING'); process.exit(1); } console.log('OK')"`
-Expected: prints `OK`.
+Run: `node -e "const s=require('fs').readFileSync('.github/workflows/release.yml','utf8'); if(!s.includes('dist -- --publish always')) { console.error('EDIT MISSING OR MISSING -- SEPARATOR'); process.exit(1); } console.log('OK')"`
+Expected: prints `OK`. The check looks for the `--` separator explicitly so a missing separator fails loudly.
 
 - [ ] **Step 3.4: Validate YAML still has no tabs**
 
