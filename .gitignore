@@ -16,8 +16,10 @@ apps/desktop/build/*
 !apps/desktop/build/generate-icon.ps1
 
 # Electron packaging
-release/
 app/dist/
+
+# electron-builder output (versioned dirs under apps/desktop/release/)
+apps/desktop/release/
 
 # IDE / editor
 .vscode/
