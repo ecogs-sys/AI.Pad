@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { homedir, platform } from 'node:os';
-import { Session } from '../src/session.js';
+import { Session } from '@aipad/core';
 import type { AttentionEvent, Shell } from '@aipad/contracts';
 
 function defaultShell(): Shell {
