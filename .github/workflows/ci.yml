@@ -26,6 +26,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --filter './packages/*' build
       - run: pnpm test
+      # Integration tests spawn real shells via node-pty. Run on Linux only —
+      # node-pty + macOS-arm64 hits posix_spawnp issues in the hosted runner,
+      # and Windows conpty is noisy under vitest's worker pool. Cross-platform
+      # PTY behavior is exercised by the E2E suite below.
+      - name: Run integration tests (Linux only)
+        if: runner.os == 'Linux'
+        run: pnpm test:integration
       # Build the desktop app on every OS so packaging-time breakage is caught per PR.
       - name: Build desktop app
         run: pnpm --filter @aipad/desktop build

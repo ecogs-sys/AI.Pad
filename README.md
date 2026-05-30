@@ -87,10 +87,18 @@ build toolchain:
   ```bash
   sudo apt-get install -y build-essential python3
   ```
-  AppImage runtime libraries (`libfuse2`) may also be needed to *run* the packaged build:
+- **FUSE 2** is required to *run* the packaged AppImage. Modern Ubuntu ships with
+  FUSE 3 by default, so you must install the FUSE 2 compatibility package:
   ```bash
+  # Ubuntu 22.04 and earlier, Debian
   sudo apt-get install -y libfuse2
+
+  # Ubuntu 24.04 and newer
+  sudo apt-get install -y libfuse2t64
   ```
+  If you skip this step, the AppImage will fail to launch with
+  `dlopen(): error loading libfuse.so.2`. See [Running the Linux AppImage](#running-the-linux-appimage)
+  for the full error and a workaround that needs no `sudo`.
 
 ---
 
@@ -158,6 +166,100 @@ there.
 > **unsigned** — macOS Gatekeeper and Windows SmartScreen will warn when you launch it,
 > and you may need to allow it explicitly. This is expected: until AI.Pad ships signed
 > releases, build and run it on your own machine, where an unsigned local build is fine.
+
+### Running the Linux AppImage
+
+After `pnpm --filter @aipad/desktop dist:linux`, you'll find the AppImage in
+`apps/desktop/release/<version>/`. Make it executable and run it:
+
+```bash
+cd apps/desktop/release/<version>/
+chmod +x AI.Pad-<version>.AppImage
+./AI.Pad-<version>.AppImage
+```
+
+**If you see this error:**
+
+```
+dlopen(): error loading libfuse.so.2
+
+AppImages require FUSE to run.
+You might still be able to extract the contents of this AppImage
+if you run it with the --appimage-extract option.
+```
+
+…your system is missing the FUSE 2 runtime that AppImages depend on. Modern Ubuntu
+(22.04+) ships with FUSE 3 only, so you need the compatibility package.
+
+**Option A — install FUSE 2 (recommended):**
+
+```bash
+# Ubuntu 22.04 and earlier, Debian
+sudo apt-get update && sudo apt-get install -y libfuse2
+
+# Ubuntu 24.04 and newer
+sudo apt-get update && sudo apt-get install -y libfuse2t64
+
+# Fedora / RHEL
+sudo dnf install -y fuse fuse-libs
+
+# Arch / Manjaro
+sudo pacman -S fuse2
+```
+
+Then run the AppImage again — it should launch normally.
+
+**Option B — extract and run without FUSE (no `sudo` needed):**
+
+```bash
+./AI.Pad-<version>.AppImage --appimage-extract
+./squashfs-root/AppRun
+```
+
+This unpacks the AppImage into a `squashfs-root/` directory next to it and runs
+the app directly from there. Useful on systems where you can't install packages.
+
+**If you see this error instead:**
+
+```
+FATAL:setuid_sandbox_host.cc(...)] The SUID sandbox helper binary was found,
+but is not configured correctly. Rather than run without sandboxing I'm
+aborting now. You need to make sure that /tmp/.mount_.../chrome-sandbox is
+owned by root and has mode 4755.
+Trace/breakpoint trap (core dumped)
+```
+
+…the Electron sandbox can't initialise. On **Ubuntu 24.04+** this is because
+AppArmor restricts unprivileged user namespaces by default. Pick one of:
+
+**Option A — allow unprivileged user namespaces (Ubuntu 24.04+, recommended):**
+
+```bash
+# One-shot for this boot
+sudo sysctl kernel.apparmor_restrict_unprivileged_userns=0
+
+# Persist across reboots
+echo "kernel.apparmor_restrict_unprivileged_userns=0" \
+  | sudo tee /etc/sysctl.d/60-apparmor-namespace.conf
+```
+
+**Option B — run without the sandbox (any distro, least secure):**
+
+```bash
+./AI.Pad-<version>.AppImage --no-sandbox
+```
+
+Use this only for local builds you trust. The Electron docs strongly recommend
+keeping the sandbox enabled in any distributed app.
+
+**Option C — make `chrome-sandbox` SUID root (works after extracting):**
+
+```bash
+./AI.Pad-<version>.AppImage --appimage-extract
+sudo chown root:root squashfs-root/chrome-sandbox
+sudo chmod 4755 squashfs-root/chrome-sandbox
+./squashfs-root/AppRun
+```
 
 ### Project scripts
 

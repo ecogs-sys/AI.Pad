@@ -1,6 +1,11 @@
+// TODO: This suite spawns a real PTY via manager.create() but never drives
+// any I/O through it — every assertion is satisfied by directly emitting
+// 'rateLimitDetected' on the returned session. Refactor to construct a
+// headless fake (EventEmitter with .id) so this can move back to the
+// packages/core unit suite. Tracked separately.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { homedir, platform } from 'node:os';
-import { SessionManager } from '../src/session-manager.js';
+import { SessionManager } from '@aipad/core';
 import type { Shell } from '@aipad/contracts';
 
 function defaultShell(): Shell {
