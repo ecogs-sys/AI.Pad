@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Anchor to repo root so relative paths work regardless of where the script is invoked from.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
 # --- prerequisite: Node.js >= 20 ---
 if ! command -v node &>/dev/null; then
   echo "Error: Node.js is not installed. Download from https://nodejs.org/ (v20 LTS or newer)." >&2
@@ -45,6 +49,6 @@ else
 fi
 
 # --- done ---
-VERSION=$(node -p "JSON.parse(require('fs').readFileSync('apps/desktop/package.json','utf8')).version")
+VERSION=$(node --input-type=module -e "import {readFileSync} from 'fs'; process.stdout.write(JSON.parse(readFileSync('apps/desktop/package.json','utf8')).version)")
 echo ""
 echo "Done. Installer is at: apps/desktop/release/$VERSION/"
