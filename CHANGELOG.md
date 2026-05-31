@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0](https://github.com/ecogs-sys/AI.Pad/compare/aipad-v0.4.1...aipad-v0.5.0) (2026-05-31)
+
+
+### Features
+
+* **scripts:** add build.ps1 for Windows ([a5fcc29](https://github.com/ecogs-sys/AI.Pad/commit/a5fcc2986025d2c35e94c6faf97dfaf8690c4ffa))
+* **scripts:** add build.sh for Linux and macOS ([3f8ecdf](https://github.com/ecogs-sys/AI.Pad/commit/3f8ecdf5b4c53a2dbdfeb13b8d79d6ce56678aaa))
+* **scripts:** native one-command build scripts for Windows, Linux, and macOS ([ac1dce5](https://github.com/ecogs-sys/AI.Pad/commit/ac1dce56723aa8c96361e02c9749ce16a8363d07))
+
+
+### Bug Fixes
+
+* **ci:** fix three independent test failures across all platforms ([49e8274](https://github.com/ecogs-sys/AI.Pad/commit/49e827490b89cf61509c9ea8ca01d05d75399c2a))
+* **ci:** fix three independent test failures across all platforms ([5247ece](https://github.com/ecogs-sys/AI.Pad/commit/5247ecee3297a78c2fc9e5b5443dd748d32900a2))
+* **ci:** run integration tests on Linux only, restore macos-latest ([e57958d](https://github.com/ecogs-sys/AI.Pad/commit/e57958dded21ce7bcd53044b027d23f6eb5d4fe9))
+* **scripts:** anchor cwd to repo root and harden version extraction in build.sh ([a4f9088](https://github.com/ecogs-sys/AI.Pad/commit/a4f90889fe19bb698455827cbff30b9d1262791e))
+* **scripts:** fix Invoke-Native so & [@args](https://github.com/args) actually splats arguments ([b0ba28c](https://github.com/ecogs-sys/AI.Pad/commit/b0ba28c4e554d9ac2be813d2bd9c50185d5ade02))
+* **scripts:** robust error handling and PSScriptRoot anchor in build.ps1 ([aced3fd](https://github.com/ecogs-sys/AI.Pad/commit/aced3fd0b65fbdb587586adbd29a6a59c7b01809))
+* **scripts:** splat cmdArgs with @ so multi-arg pnpm calls work in PowerShell ([e4a619d](https://github.com/ecogs-sys/AI.Pad/commit/e4a619d1b659466a2cf68575d0ea73cc8c5519d1))
+* **tests:** fix Ubuntu CI failures in integration tests ([4bb29b9](https://github.com/ecogs-sys/AI.Pad/commit/4bb29b9985eeb3c38be1d83edfe6877d6e522a1c))
+* **tests:** gate PTY-spawning core tests to Linux; fix attention-detector timing ([c083c5c](https://github.com/ecogs-sys/AI.Pad/commit/c083c5c98d8af63ec9a70c98f0f181669556043f))
+
 ## [0.4.1](https://github.com/ecogs-sys/AI.Pad/compare/aipad-v0.4.0...aipad-v0.4.1) (2026-05-30)
 
 
