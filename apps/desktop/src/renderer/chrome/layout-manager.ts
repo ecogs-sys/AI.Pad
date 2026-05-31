@@ -24,6 +24,8 @@ export class LayoutManager {
   private tickHandle: ReturnType<typeof setInterval> | null = null;
   /** Platform home directory, fetched from main at startup (the chrome cannot read it). */
   private homeCwd = '~';
+  /** User-configured default working directory (settings.defaultCwd). Cached here so
+   *  platformDefaultCwd() can remain synchronous. Kept live by the SettingsChanged subscription. */
   private defaultCwdSetting = '';
 
   constructor(deps: LayoutDeps) {
