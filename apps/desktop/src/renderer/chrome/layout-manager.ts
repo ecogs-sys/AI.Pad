@@ -225,8 +225,9 @@ export class LayoutManager {
   private platformDefaultCwd(): string {
     // Prefer the most recent session's cwd; otherwise the configured default working
     // directory from settings; otherwise the real home directory fetched from main at startup.
-    for (const session of this.state.sessions.values()) {
-      if (session.info.cwd) return session.info.cwd;
+    for (const id of this.state.tabOrder) {
+      const cwd = this.state.sessions.get(id)?.info.cwd;
+      if (cwd) return cwd;
     }
     if (this.defaultCwdSetting) return this.defaultCwdSetting;
     return this.homeCwd;
