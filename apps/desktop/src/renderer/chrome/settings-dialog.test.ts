@@ -72,11 +72,15 @@ describe('showSettingsDialog — Default Working Directory section', () => {
       return Promise.resolve({ ok: true });
     });
     const mount = mountEl();
-    void showSettingsDialog(mount, BASE);
+    void showSettingsDialog(mount, { ...BASE, defaultCwd: '/starting/path' });
 
     mount.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.click();
     await new Promise((r) => setTimeout(r, 0));
 
+    expect(bridge.send).toHaveBeenCalledWith(
+      IpcChannel.FsPickDirectory,
+      { startPath: '/starting/path' },
+    );
     const input = mount.querySelector<HTMLInputElement>('#set-default-cwd');
     expect(input?.value).toBe('/new/path');
   });

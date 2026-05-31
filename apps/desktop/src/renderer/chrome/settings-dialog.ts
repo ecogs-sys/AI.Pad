@@ -101,11 +101,12 @@ export function showSettingsDialog(
     detectEl.focus();
     detectEl.select();
 
-    const bridge = (window as unknown as { aipad: Bridge }).aipad;
     root.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.addEventListener('click', () => {
       void (async () => {
+        const b = (window as unknown as { aipad: Bridge }).aipad;
+        if (!b) return;
         try {
-          const resp = await bridge.send(IpcChannel.FsPickDirectory, { startPath: defaultCwdEl.value });
+          const resp = await b.send(IpcChannel.FsPickDirectory, { startPath: defaultCwdEl.value });
           const r = resp as { path?: string; cancelled?: true };
           if (r && typeof r.path === 'string') {
             defaultCwdEl.value = r.path;
@@ -128,6 +129,7 @@ export function showSettingsDialog(
       const detectText = detectEl.value.trim();
       const responseText = responseEl.value;
       const defaultCwd = defaultCwdEl.value.trim();
+      // When enabled, a non-empty detect phrase is required.
       if (enabled && !detectText) {
         detectEl.focus();
         return;
