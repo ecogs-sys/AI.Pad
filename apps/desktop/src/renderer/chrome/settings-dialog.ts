@@ -1,4 +1,9 @@
 import type { AppSettings } from '@aipad/contracts';
+import { IpcChannel } from '@aipad/contracts';
+
+interface Bridge {
+  send: (channel: string, payload?: unknown) => Promise<unknown>;
+}
 
 /**
  * Show the settings modal pre-filled from `current`. Resolves with the new
@@ -49,6 +54,15 @@ export function showSettingsDialog(
         <input id="set-response" type="text" maxlength="200" class="dlg-input" />
       </section>
 
+      <section class="dlg-section">
+        <div class="dlg-label">DEFAULT WORKING DIRECTORY</div>
+        <div class="dlg-path-row">
+          <input id="set-default-cwd" type="text" class="dlg-input" />
+          <button id="set-default-cwd-browse" type="button" class="dlg-btn">Browse…</button>
+        </div>
+        <div class="dlg-help">Leave blank to use your home directory.</div>
+      </section>
+
       <div class="dlg-footer">
         <button id="set-cancel" class="dlg-btn">Cancel</button>
         <button id="set-save" class="dlg-btn dlg-btn-primary">Save</button>
@@ -59,6 +73,7 @@ export function showSettingsDialog(
     const enabledEl = root.querySelector<HTMLInputElement>('#set-enabled')!;
     const detectEl = root.querySelector<HTMLInputElement>('#set-detect')!;
     const responseEl = root.querySelector<HTMLInputElement>('#set-response')!;
+    const defaultCwdEl = root.querySelector<HTMLInputElement>('#set-default-cwd')!;
     const saveEl = root.querySelector<HTMLButtonElement>('#set-save')!;
     const cancelEl = root.querySelector<HTMLButtonElement>('#set-cancel')!;
 
@@ -82,8 +97,24 @@ export function showSettingsDialog(
 
     detectEl.value = current.autoResume.detectText;
     responseEl.value = current.autoResume.responseText;
+    defaultCwdEl.value = current.defaultCwd;
     detectEl.focus();
     detectEl.select();
+
+    const bridge = (window as unknown as { aipad: Bridge }).aipad;
+    root.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.addEventListener('click', () => {
+      void (async () => {
+        try {
+          const resp = await bridge.send(IpcChannel.FsPickDirectory, { startPath: defaultCwdEl.value });
+          const r = resp as { path?: string; cancelled?: true };
+          if (r && typeof r.path === 'string') {
+            defaultCwdEl.value = r.path;
+          }
+        } catch (err) {
+          console.warn('[settings] Browse failed:', err);
+        }
+      })();
+    });
 
     const cleanup = (result: AppSettings | null): void => {
       mount.classList.remove('open');
@@ -96,12 +127,12 @@ export function showSettingsDialog(
       const enabled = enabledEl.checked;
       const detectText = detectEl.value.trim();
       const responseText = responseEl.value;
-      // When enabled, a non-empty detect phrase is required.
+      const defaultCwd = defaultCwdEl.value.trim();
       if (enabled && !detectText) {
         detectEl.focus();
         return;
       }
-      cleanup({ autoResume: { enabled, detectText, responseText } });
+      cleanup({ autoResume: { enabled, detectText, responseText }, defaultCwd });
     }
 
     const onKey = (ev: KeyboardEvent): void => {
