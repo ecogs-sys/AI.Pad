@@ -40,11 +40,12 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     expect(labels).toContain('DEFAULT WORKING DIRECTORY');
   });
 
-  it('pre-fills the path input with current.defaultCwd', () => {
+  it('opens in edit mode — aip-path-input__field contains an <input>', () => {
     const mount = mountEl();
     void showSettingsDialog(mount, { ...BASE, defaultCwd: '/home/me/projects' });
 
-    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd');
+    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd-field input');
+    expect(input).not.toBeNull();
     expect(input?.value).toBe('/home/me/projects');
   });
 
@@ -52,7 +53,7 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     const mount = mountEl();
     void showSettingsDialog(mount, { ...BASE, defaultCwd: '' });
 
-    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd');
+    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd-field input');
     expect(input?.value).toBe('');
   });
 
@@ -65,7 +66,7 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     expect(browseBtn!.textContent).toContain('Browse');
   });
 
-  it('Browse button calls FsPickDirectory and updates the input when a path is returned', async () => {
+  it('Browse button calls FsPickDirectory with startPath and updates the input', async () => {
     const bridge = freshBridge();
     bridge.send.mockImplementation((channel: string) => {
       if (channel === IpcChannel.FsPickDirectory) return Promise.resolve({ path: '/new/path' });
@@ -81,7 +82,7 @@ describe('showSettingsDialog — Default Working Directory section', () => {
       IpcChannel.FsPickDirectory,
       { startPath: '/starting/path' },
     );
-    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd');
+    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd-field input');
     expect(input?.value).toBe('/new/path');
   });
 
@@ -97,15 +98,27 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     mount.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.click();
     await new Promise((r) => setTimeout(r, 0));
 
-    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd');
+    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd-field input');
     expect(input?.value).toBe('/original');
+  });
+
+  it('blurring a non-empty input switches to display mode — dim parent + tail visible, no <input>', () => {
+    const mount = mountEl();
+    void showSettingsDialog(mount, { ...BASE, defaultCwd: '/home/me/projects' });
+
+    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd-field input')!;
+    input.blur();
+
+    expect(mount.querySelector('#set-default-cwd-field .dim')?.textContent).toBe('/home/me/');
+    expect(mount.querySelector('#set-default-cwd-field')!.textContent).toContain('projects');
+    expect(mount.querySelector('#set-default-cwd-field input')).toBeNull();
   });
 
   it('Save resolves with the trimmed defaultCwd value', async () => {
     const mount = mountEl();
     const p = showSettingsDialog(mount, BASE);
 
-    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd')!;
+    const input = mount.querySelector<HTMLInputElement>('#set-default-cwd-field input')!;
     input.value = '  /my/path  ';
 
     mount.querySelector<HTMLButtonElement>('#set-save')!.click();

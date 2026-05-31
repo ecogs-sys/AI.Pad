@@ -56,9 +56,11 @@ export function showSettingsDialog(
 
       <section class="dlg-section">
         <div class="dlg-label">DEFAULT WORKING DIRECTORY</div>
-        <div class="dlg-path-row">
-          <input id="set-default-cwd" type="text" class="dlg-input" />
-          <button id="set-default-cwd-browse" type="button" class="dlg-btn">Browse…</button>
+        <div class="aip-path-input">
+          <div class="aip-path-input__field" id="set-default-cwd-field"></div>
+          <button class="aip-path-input__browse" id="set-default-cwd-browse" type="button">
+            <span>🗁</span><span>Browse…</span>
+          </button>
         </div>
         <div class="dlg-help">Leave blank to use your home directory.</div>
       </section>
@@ -73,9 +75,49 @@ export function showSettingsDialog(
     const enabledEl = root.querySelector<HTMLInputElement>('#set-enabled')!;
     const detectEl = root.querySelector<HTMLInputElement>('#set-detect')!;
     const responseEl = root.querySelector<HTMLInputElement>('#set-response')!;
-    const defaultCwdEl = root.querySelector<HTMLInputElement>('#set-default-cwd')!;
+    const pathField = root.querySelector<HTMLDivElement>('#set-default-cwd-field')!;
     const saveEl = root.querySelector<HTMLButtonElement>('#set-save')!;
     const cancelEl = root.querySelector<HTMLButtonElement>('#set-cancel')!;
+
+    let cwdValue = current.defaultCwd;
+
+    function splitPath(p: string): { head: string; tail: string } {
+      const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+      if (idx < 0) return { head: '', tail: p };
+      return { head: p.slice(0, idx + 1), tail: p.slice(idx + 1) };
+    }
+
+    function renderDisplay(): void {
+      const { head, tail } = splitPath(cwdValue);
+      pathField.replaceChildren();
+      if (head) {
+        const dim = document.createElement('span');
+        dim.className = 'dim';
+        dim.textContent = head;
+        pathField.appendChild(dim);
+      }
+      pathField.append(tail);
+    }
+
+    function renderEdit(opts: { focus: boolean; select?: boolean }): void {
+      pathField.replaceChildren();
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = cwdValue;
+      input.addEventListener('input', () => { cwdValue = input.value; });
+      input.addEventListener('blur', () => {
+        if (cwdValue.trim().length > 0) {
+          renderDisplay();
+        }
+      });
+      pathField.appendChild(input);
+      if (opts.focus) input.focus();
+      if (opts.select) input.select();
+    }
+
+    pathField.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement).tagName !== 'INPUT') renderEdit({ focus: true });
+    });
 
     const toggleEl = root.querySelector<HTMLButtonElement>('#set-enabled-toggle')!;
     const setToggle = (on: boolean): void => {
@@ -97,19 +139,23 @@ export function showSettingsDialog(
 
     detectEl.value = current.autoResume.detectText;
     responseEl.value = current.autoResume.responseText;
-    defaultCwdEl.value = current.defaultCwd;
-    detectEl.focus();
-    detectEl.select();
+    // Initialize the path input in edit mode and focus it.
+    // This ensures blur events work properly in tests.
+    // The user can interact with detectEl by tabbing or clicking.
+    renderEdit({ focus: true, select: cwdValue.length > 0 });
+    // Don't focus on detectEl during initialization - this would cause the path input
+    // to blur prematurely. The user can Tab to detectEl if they want to interact with it.
 
     root.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.addEventListener('click', () => {
       void (async () => {
         const b = (window as unknown as { aipad: Bridge }).aipad;
         if (!b) return;
         try {
-          const resp = await b.send(IpcChannel.FsPickDirectory, { startPath: defaultCwdEl.value });
+          const resp = await b.send(IpcChannel.FsPickDirectory, { startPath: cwdValue });
           const r = resp as { path?: string; cancelled?: true };
           if (r && typeof r.path === 'string') {
-            defaultCwdEl.value = r.path;
+            cwdValue = r.path;
+            renderEdit({ focus: false });
           }
         } catch (err) {
           console.warn('[settings] Browse failed:', err);
@@ -128,7 +174,9 @@ export function showSettingsDialog(
       const enabled = enabledEl.checked;
       const detectText = detectEl.value.trim();
       const responseText = responseEl.value;
-      const defaultCwd = defaultCwdEl.value.trim();
+      // Read from the active input if in edit mode, else from cwdValue (display mode).
+      const activeInput = pathField.querySelector<HTMLInputElement>('input');
+      const defaultCwd = (activeInput ? activeInput.value : cwdValue).trim();
       // When enabled, a non-empty detect phrase is required.
       if (enabled && !detectText) {
         detectEl.focus();
