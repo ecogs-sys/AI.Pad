@@ -17,6 +17,14 @@ function collect(manager: SessionManager, sessionId: string): { read: () => stri
   return { read: () => buffer };
 }
 
+/** Returns true if `tag` appears as a standalone output line (not just inside a
+ * typed-command echo).  On Windows, PSReadLine may show a previous session's
+ * command as predictive-text in the raw PTY stream, so we check for exact-match
+ * lines rather than substring containment. */
+function hasOutputLine(buffer: string, tag: string): boolean {
+  return buffer.split(/\r?\n/).some((line) => line.trim() === tag);
+}
+
 async function waitFor(predicate: () => boolean, timeoutMs = 8000): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
@@ -59,10 +67,10 @@ describe('SessionManager + real PTY', () => {
     b.write(`echo ${tagB}\r`);
 
     await waitFor(() => streamA.read().includes(tagA) && streamB.read().includes(tagB));
-    expect(streamA.read()).toContain(tagA);
-    expect(streamA.read()).not.toContain(tagB);
-    expect(streamB.read()).toContain(tagB);
-    expect(streamB.read()).not.toContain(tagA);
+    expect(hasOutputLine(streamA.read(), tagA)).toBe(true);
+    expect(hasOutputLine(streamA.read(), tagB)).toBe(false);
+    expect(hasOutputLine(streamB.read(), tagB)).toBe(true);
+    expect(hasOutputLine(streamB.read(), tagA)).toBe(false);
   });
 
   it('defaults new sessions to kind "tab" and tags pane sessions as "pane"', async () => {
