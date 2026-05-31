@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-14]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       # pnpm version is driven by package.json's "packageManager" field
@@ -26,6 +26,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --filter './packages/*' build
       - run: pnpm test
+      # Integration tests spawn real shells via node-pty. macOS-arm64 runners hit
+      # posix_spawnp restrictions and Windows ConPTY is noisy under vitest's worker
+      # pool. Cross-platform PTY behaviour is covered by the E2E suite below.
+      - name: Run integration tests (Linux only)
+        if: runner.os == 'Linux'
+        run: pnpm test:integration
       # Build the desktop app on every OS so packaging-time breakage is caught per PR.
       - name: Build desktop app
         run: pnpm --filter @aipad/desktop build
