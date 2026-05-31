@@ -36,21 +36,21 @@ others quietly wait their turn. It can even resume a rate-limited agent on its o
 
 ## Screenshots
 
-**A single session — a normal, fast terminal.**
+**Single session — full sidebar with live session status.**
 
-![AI.Pad main window](docs/images/main.png)
+![AI.Pad main window with sidebar and PowerShell session](docs/images/main.png)
 
-**Many tabs at once — background tabs badge yellow when they need you, and a native notification fires.**
+**Multiple tabs — background tabs badge yellow when they need you; the sidebar counters update instantly.**
 
-![Multiple tabs with attention badges and an OS notification](docs/images/multi-tab.png)
+![Three tabs with two awaiting-input badges and sidebar showing 2 AWAIT](docs/images/multi-tab.png)
 
-**Split panes — watch two sessions in one tab.**
+**Split panes — watch two sessions side by side in a single tab.**
 
-![A tab split into two panes](docs/images/splits.png)
+![A tab split horizontally into two independent panes](docs/images/splits.png)
 
-**Settings — configure rate-limit auto-resume.**
+**Settings — configure auto-resume detection phrase and response text.**
 
-![The Settings dialog](docs/images/settings.png)
+![The Auto-resume settings panel](docs/images/settings.png)
 
 ---
 
@@ -96,88 +96,89 @@ build toolchain:
 
 ## Build & run
 
-The steps below are the same on every OS unless noted.
+### Quick start — build an installer (one command)
 
-### 1. Get the code
-
-```bash
-git clone https://github.com/ecogs-sys/AI.Pad.git
-cd AI.Pad
-corepack enable          # makes the pinned pnpm version available
-```
-
-### 2. Install dependencies
-
-```bash
-pnpm install
-```
-
-This fetches ~600 packages (Electron, `node-pty`, xterm, …) and compiles the native
-PTY module for your platform — expect it to take a few minutes the first time.
-
-### 3. Run in development
-
-```bash
-pnpm dev
-```
-
-A native window opens with one shell session inside it. This mode has hot-reload and
-is the fastest way to try AI.Pad without packaging an installer.
-
-### 4. Build an installer
-
-To produce a distributable installer you build the app and then package it. Run the
-**command for your platform** — `electron-builder` can only target the OS it runs on
-without extra cross-compilation setup.
-
-```bash
-# Compile all packages and the Electron app first
-pnpm build
-```
-
-**Windows** — produces an NSIS installer (`AI.Pad Setup x.y.z.exe`):
-```powershell
-pnpm --filter @aipad/desktop dist:win
-```
-
-**macOS** — produces a disk image (`AI.Pad-x.y.z.dmg`):
-```bash
-pnpm --filter @aipad/desktop dist:mac
-```
-
-**Linux** — produces an AppImage (`AI.Pad-x.y.z.AppImage`):
-```bash
-pnpm --filter @aipad/desktop dist:linux
-```
-
-The packaged output lands in `apps/desktop/release/<version>/`. Install or run it from
-there.
-
-> **A note on signing.** The macOS build config sets `mac.identity: null` so packaging
-> works locally without an Apple Developer certificate. The resulting build is
-> **unsigned** — macOS Gatekeeper and Windows SmartScreen will warn when you launch it,
-> and you may need to allow it explicitly. This is expected: until AI.Pad ships signed
-> releases, build and run it on your own machine, where an unsigned local build is fine.
-
-### Build an installer (one command)
-
-Clone the repo, then run the script for your OS from the repo root. It installs
-dependencies (or skips them if already present), compiles the app, and produces a
-platform installer in `apps/desktop/release/<version>/`.
+Clone the repo, then run the script for your OS from the repo root. The script
+checks prerequisites, installs dependencies (or skips them if already present),
+compiles the app, and produces a platform installer in
+`apps/desktop/release/<version>/`.
 
 **Windows (PowerShell):**
 ```powershell
+git clone https://github.com/ecogs-sys/AI.Pad.git
+cd AI.Pad
 .\scripts\build.ps1
 ```
 
 **macOS / Linux:**
 ```bash
+git clone https://github.com/ecogs-sys/AI.Pad.git
+cd AI.Pad
 bash scripts/build.sh
 ```
 
-> **Prerequisites:** Node.js ≥ 20 and pnpm (`corepack enable`) must be installed first.
-> See the [Prerequisites](#prerequisites) section above for platform-specific build
-> toolchain requirements (Visual Studio Build Tools on Windows, Xcode CLT on macOS).
+> **Prerequisites:** Node.js ≥ 20 and pnpm must be installed first — run
+> `corepack enable` once to activate pnpm. See [Prerequisites](#prerequisites)
+> for platform-specific build-toolchain requirements.
+
+> **A note on signing.** The macOS build config sets `mac.identity: null` so
+> packaging works locally without an Apple Developer certificate. The resulting
+> build is **unsigned** — macOS Gatekeeper and Windows SmartScreen will warn when
+> you launch it, and you may need to allow it explicitly. This is expected until
+> signed releases ship.
+
+### Run in development mode
+
+To open AI.Pad without building an installer (fastest way to try it):
+
+```bash
+git clone https://github.com/ecogs-sys/AI.Pad.git
+cd AI.Pad
+corepack enable
+pnpm install
+pnpm dev
+```
+
+A native window opens immediately with hot-reload enabled.
+
+### Manual step-by-step (troubleshooting)
+
+Use these steps when you need to run stages individually — for example to debug a
+failed build or to package for a specific platform after a `pnpm install` that's
+already been done.
+
+**1. Install dependencies**
+```bash
+corepack enable
+pnpm install
+```
+
+**2. Compile all packages and the Electron app**
+```bash
+pnpm build
+```
+
+**3. Package an installer for your platform**
+
+*Windows* — produces `AI.Pad Setup x.y.z.exe`:
+```powershell
+pnpm --filter @aipad/desktop dist:win
+```
+
+*macOS* — produces `AI.Pad-x.y.z.dmg`:
+```bash
+pnpm --filter @aipad/desktop dist:mac
+```
+
+*Linux* — produces `AI.Pad-x.y.z.AppImage`:
+```bash
+pnpm --filter @aipad/desktop dist:linux
+```
+
+The packaged output lands in `apps/desktop/release/<version>/`.
+
+> `electron-builder` can only target the OS it is running on without additional
+> cross-compilation setup, so run each `dist:*` command on the matching platform.
 
 ### Project scripts
 
@@ -246,9 +247,12 @@ pane. Each pane is a full, independent session — splitting is purely a layout 
 
 ### Live sidebar
 
-The collapsible left rail (toggle with `Ctrl+B`) lists every session with its shell
-icon, title, current status (`running`, `awaiting-input`, or `exited`), and how long
-it's been in that state. Click an entry to focus its tab.
+The collapsible left rail (toggle with `Ctrl+B`) shows a real-time summary row of
+counts across all sessions — **AWAIT**, **LIMITED**, **RUNNING**, and **IDLE** — so
+you can see at a glance how many agents need attention without reading every card.
+Below the summary, each session is listed with its shell icon, title, current status
+(`running`, `awaiting-input`, `rate-limited`, or `exited`), and how long it has been
+in that state. Click an entry to focus its tab.
 
 ### Session persistence
 
@@ -268,9 +272,10 @@ launches.
 
 ### Settings panel
 
-Open **View → Settings…** (or `Ctrl+,`) to configure rate-limit auto-resume: turn it on
-or off, set the **text to detect** that marks a rate-limit message, and set the
-**response to send** when the limit resets. Settings persist across restarts.
+Open **View → Settings…** (or `Ctrl+,`) to configure rate-limit auto-resume. The
+**Auto-resume** panel lets you toggle the feature on or off, set the **text to detect**
+that marks a rate-limit message (preset chips for common phrases are provided), and set
+the **response to send** when the limit resets. Settings persist across restarts.
 
 ### Keyboard shortcuts
 
