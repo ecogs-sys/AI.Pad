@@ -80,7 +80,6 @@ export function showSettingsDialog(
     const cancelEl = root.querySelector<HTMLButtonElement>('#set-cancel')!;
 
     let cwdValue = current.defaultCwd;
-    let initializationComplete = false;
 
     function splitPath(p: string): { head: string; tail: string } {
       const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
@@ -107,7 +106,7 @@ export function showSettingsDialog(
       input.value = cwdValue;
       input.addEventListener('input', () => { cwdValue = input.value; });
       input.addEventListener('blur', () => {
-        if (initializationComplete && cwdValue.trim().length > 0) {
+        if (cwdValue.trim().length > 0) {
           renderDisplay();
         }
       });
@@ -143,9 +142,6 @@ export function showSettingsDialog(
     renderEdit({ focus: false, select: cwdValue.length > 0 });
     detectEl.focus();
     detectEl.select();
-    // Mark initialization as complete so the blur handler will work for
-    // subsequent user interactions.
-    initializationComplete = true;
 
     root.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.addEventListener('click', () => {
       void (async () => {

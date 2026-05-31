@@ -107,6 +107,7 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     void showSettingsDialog(mount, { ...BASE, defaultCwd: '/home/me/projects' });
 
     const input = mount.querySelector<HTMLInputElement>('#set-default-cwd-field input')!;
+    input.focus();
     input.blur();
 
     expect(mount.querySelector('#set-default-cwd-field .dim')?.textContent).toBe('/home/me/');
