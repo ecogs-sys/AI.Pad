@@ -17,6 +17,20 @@ function collect(manager: SessionManager, sessionId: string): { read: () => stri
   return { read: () => buffer };
 }
 
+/** Returns true if `tag` appears as a standalone output line (not just inside a
+ * typed-command echo).  On Windows, PSReadLine may show a previous session's
+ * command as predictive-text in the raw PTY stream, so we check for exact-match
+ * lines rather than substring containment.  On Linux/macOS bash emits ANSI
+ * colour codes around echo output, so we strip escape sequences before
+ * comparing. */
+function hasOutputLine(buffer: string, tag: string): boolean {
+  const strip = (s: string) =>
+    s.replace(/\x1b\[[^A-Za-z]*[A-Za-z]/g, '')   // CSI sequences
+     .replace(/\x1b\][^\x07]*\x07/g, '')           // OSC sequences
+     .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '');   // other control chars
+  return buffer.split(/\r?\n/).some((line) => strip(line).trim() === tag);
+}
+
 async function waitFor(predicate: () => boolean, timeoutMs = 8000): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
@@ -59,10 +73,10 @@ describe('SessionManager + real PTY', () => {
     b.write(`echo ${tagB}\r`);
 
     await waitFor(() => streamA.read().includes(tagA) && streamB.read().includes(tagB));
-    expect(streamA.read()).toContain(tagA);
-    expect(streamA.read()).not.toContain(tagB);
-    expect(streamB.read()).toContain(tagB);
-    expect(streamB.read()).not.toContain(tagA);
+    expect(hasOutputLine(streamA.read(), tagA)).toBe(true);
+    expect(hasOutputLine(streamA.read(), tagB)).toBe(false);
+    expect(hasOutputLine(streamB.read(), tagB)).toBe(true);
+    expect(hasOutputLine(streamB.read(), tagA)).toBe(false);
   });
 
   it('defaults new sessions to kind "tab" and tags pane sessions as "pane"', async () => {

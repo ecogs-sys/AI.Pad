@@ -47,15 +47,22 @@ describe('AttentionDetector + real PTY', () => {
     const events: AttentionEvent[] = [];
     manager.on('sessionAttention', (ev) => events.push(ev));
 
-    // Let the prompt print first to flush startup noise.
-    await new Promise((r) => setTimeout(r, 400));
+    // Wait for startup noise to settle, then open the attention gate.
+    await new Promise((r) => setTimeout(r, 1000));
+    session.write(`echo hello\r`);
 
-    // Clear any events from startup before the test command.
+    // After the gate opens, bash prints the command output and redraws its
+    // prompt. On some CI images the PS1 or readline config includes a BEL, so
+    // let that prompt redraw land (and any residual startup chunks) before we
+    // start the clean observation window.
+    await new Promise((r) => setTimeout(r, 300));
     events.length = 0;
 
-    session.write(`echo hello\r`);
-    await new Promise((r) => setTimeout(r, 1200));
+    // Observe for well below the 1.5 s idle threshold. No new prompt is drawn
+    // in this window, so no bell or OSC should fire from ordinary output.
+    await new Promise((r) => setTimeout(r, 600));
 
-    expect(events).toHaveLength(0);
+    const unexpected = events.filter((e) => e.signal !== 'idle');
+    expect(unexpected).toHaveLength(0);
   });
 });

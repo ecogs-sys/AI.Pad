@@ -12,7 +12,8 @@
   "scripts": {
     "dev": "pnpm --filter @aipad/desktop dev",
     "build": "pnpm -r --filter './packages/*' build && pnpm --filter @aipad/desktop build",
-    "test": "pnpm -r --if-present --filter=!@aipad/e2e test",
+    "test": "pnpm -r --if-present --filter=!@aipad/e2e --filter=!@aipad/integration test",
+    "test:integration": "pnpm --filter @aipad/integration test",
     "test:e2e": "pnpm --filter @aipad/e2e test",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "pnpm -r typecheck",
