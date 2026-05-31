@@ -80,6 +80,7 @@ export function showSettingsDialog(
     const cancelEl = root.querySelector<HTMLButtonElement>('#set-cancel')!;
 
     let cwdValue = current.defaultCwd;
+    let initializationComplete = false;
 
     function splitPath(p: string): { head: string; tail: string } {
       const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
@@ -106,7 +107,7 @@ export function showSettingsDialog(
       input.value = cwdValue;
       input.addEventListener('input', () => { cwdValue = input.value; });
       input.addEventListener('blur', () => {
-        if (cwdValue.trim().length > 0) {
+        if (initializationComplete && cwdValue.trim().length > 0) {
           renderDisplay();
         }
       });
@@ -139,12 +140,12 @@ export function showSettingsDialog(
 
     detectEl.value = current.autoResume.detectText;
     responseEl.value = current.autoResume.responseText;
-    // Initialize the path input in edit mode and focus it.
-    // This ensures blur events work properly in tests.
-    // The user can interact with detectEl by tabbing or clicking.
-    renderEdit({ focus: true, select: cwdValue.length > 0 });
-    // Don't focus on detectEl during initialization - this would cause the path input
-    // to blur prematurely. The user can Tab to detectEl if they want to interact with it.
+    renderEdit({ focus: false, select: cwdValue.length > 0 });
+    detectEl.focus();
+    detectEl.select();
+    // Mark initialization as complete so the blur handler will work for
+    // subsequent user interactions.
+    initializationComplete = true;
 
     root.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.addEventListener('click', () => {
       void (async () => {
