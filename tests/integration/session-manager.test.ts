@@ -20,9 +20,15 @@ function collect(manager: SessionManager, sessionId: string): { read: () => stri
 /** Returns true if `tag` appears as a standalone output line (not just inside a
  * typed-command echo).  On Windows, PSReadLine may show a previous session's
  * command as predictive-text in the raw PTY stream, so we check for exact-match
- * lines rather than substring containment. */
+ * lines rather than substring containment.  On Linux/macOS bash emits ANSI
+ * colour codes around echo output, so we strip escape sequences before
+ * comparing. */
 function hasOutputLine(buffer: string, tag: string): boolean {
-  return buffer.split(/\r?\n/).some((line) => line.trim() === tag);
+  const strip = (s: string) =>
+    s.replace(/\x1b\[[^A-Za-z]*[A-Za-z]/g, '')   // CSI sequences
+     .replace(/\x1b\][^\x07]*\x07/g, '')           // OSC sequences
+     .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '');   // other control chars
+  return buffer.split(/\r?\n/).some((line) => strip(line).trim() === tag);
 }
 
 async function waitFor(predicate: () => boolean, timeoutMs = 8000): Promise<void> {

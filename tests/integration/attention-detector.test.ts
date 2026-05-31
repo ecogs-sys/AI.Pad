@@ -47,8 +47,10 @@ describe('AttentionDetector + real PTY', () => {
     const events: AttentionEvent[] = [];
     manager.on('sessionAttention', (ev) => events.push(ev));
 
-    // Let the prompt print first to flush startup noise.
-    await new Promise((r) => setTimeout(r, 400));
+    // Wait long enough for ALL bash/pwsh startup output (including any BEL bytes)
+    // to have been fully flushed through the PTY before we open the attention gate.
+    // 400 ms is not enough on loaded CI runners where startup chunks arrive late.
+    await new Promise((r) => setTimeout(r, 1000));
 
     // Clear any events from startup before the test command.
     events.length = 0;
