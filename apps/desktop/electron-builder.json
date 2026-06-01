@@ -27,7 +27,8 @@
   },
   "linux": {
     "target": ["AppImage", "deb"],
-    "category": "Development"
+    "category": "Development",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "publish": [
     {
