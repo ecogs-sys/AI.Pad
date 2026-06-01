@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/ecogs-sys/AI.Pad/compare/aipad-v0.6.0...aipad-v0.6.1) (2026-06-01)
+
+
+### Bug Fixes
+
+* add author email and homepage for Linux deb packaging ([3f4eb6a](https://github.com/ecogs-sys/AI.Pad/commit/3f4eb6a84a7462643e3a751a909e2791cdd96261))
+
 ## [0.6.0](https://github.com/ecogs-sys/AI.Pad/compare/aipad-v0.5.0...aipad-v0.6.0) (2026-06-01)
 
 
