@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.0](https://github.com/ecogs-sys/AI.Pad/compare/desktop-v0.4.0...desktop-v0.5.0) (2026-06-01)
+
+
+### Features
+
+* add cross-platform icon generation script and generated assets ([3a1d130](https://github.com/ecogs-sys/AI.Pad/commit/3a1d1300362f1ed278f65341410a63f7feed6d50))
+* add deb linux target, retire generate-icon.ps1 ([5439b4d](https://github.com/ecogs-sys/AI.Pad/commit/5439b4d4616fb6518c2237ee4426ae0daeecea6d))
+* add Default Working Directory section to settings dialog ([d0e927b](https://github.com/ecogs-sys/AI.Pad/commit/d0e927b5ac2a69907950f6a97a1d527fd3df6073))
+* add Default Working Directory setting ([2471004](https://github.com/ecogs-sys/AI.Pad/commit/2471004a9246dd8b41a4adfdd00040621dc439e3))
+* replace plain input with aip-path-input widget in settings dialog ([10b883b](https://github.com/ecogs-sys/AI.Pad/commit/10b883bd02c1edb4829e410ec7a6b90a05197406))
+* wire defaultCwd setting into layout-manager platformDefaultCwd ([b40c447](https://github.com/ecogs-sys/AI.Pad/commit/b40c447861e044c18f8396042c2816f394e39b25))
+
+
+### Bug Fixes
+
+* focus input before blur in display-mode test, remove initializationComplete flag ([f3979bc](https://github.com/ecogs-sys/AI.Pad/commit/f3979bcd2d4ea10925f9ef999684e4d83b52659f))
+* platformDefaultCwd walks tabOrder instead of Map insertion order ([b9e6b96](https://github.com/ecogs-sys/AI.Pad/commit/b9e6b96ee4af2582dfbb5ef2b2707e35bf46f3c3))
+* settings dialog Browse guard and test coverage ([4300fba](https://github.com/ecogs-sys/AI.Pad/commit/4300fbaaefef52d5a2f1bfc00bfd64afe9fc99cd))
+* settings dialog path field opens unfocused, detect field retains focus ([05894b2](https://github.com/ecogs-sys/AI.Pad/commit/05894b2825f2f836fbe7eb0177bbf2316c33be87))
+
 ## [0.4.0](https://github.com/ecogs-sys/AI.Pad/compare/desktop-v0.3.0...desktop-v0.4.0) (2026-05-30)
 
 
