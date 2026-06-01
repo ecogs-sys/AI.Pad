@@ -1,4 +1,9 @@
 import type { AppSettings } from '@aipad/contracts';
+import { IpcChannel } from '@aipad/contracts';
+
+interface Bridge {
+  send: (channel: string, payload?: unknown) => Promise<unknown>;
+}
 
 /**
  * Show the settings modal pre-filled from `current`. Resolves with the new
@@ -49,6 +54,17 @@ export function showSettingsDialog(
         <input id="set-response" type="text" maxlength="200" class="dlg-input" />
       </section>
 
+      <section class="dlg-section">
+        <div class="dlg-label">DEFAULT WORKING DIRECTORY</div>
+        <div class="aip-path-input">
+          <div class="aip-path-input__field" id="set-default-cwd-field"></div>
+          <button class="aip-path-input__browse" id="set-default-cwd-browse" type="button">
+            <span>🗁</span><span>Browse…</span>
+          </button>
+        </div>
+        <div class="dlg-help">Leave blank to use your home directory.</div>
+      </section>
+
       <div class="dlg-footer">
         <button id="set-cancel" class="dlg-btn">Cancel</button>
         <button id="set-save" class="dlg-btn dlg-btn-primary">Save</button>
@@ -59,8 +75,49 @@ export function showSettingsDialog(
     const enabledEl = root.querySelector<HTMLInputElement>('#set-enabled')!;
     const detectEl = root.querySelector<HTMLInputElement>('#set-detect')!;
     const responseEl = root.querySelector<HTMLInputElement>('#set-response')!;
+    const pathField = root.querySelector<HTMLDivElement>('#set-default-cwd-field')!;
     const saveEl = root.querySelector<HTMLButtonElement>('#set-save')!;
     const cancelEl = root.querySelector<HTMLButtonElement>('#set-cancel')!;
+
+    let cwdValue = current.defaultCwd;
+
+    function splitPath(p: string): { head: string; tail: string } {
+      const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+      if (idx < 0) return { head: '', tail: p };
+      return { head: p.slice(0, idx + 1), tail: p.slice(idx + 1) };
+    }
+
+    function renderDisplay(): void {
+      const { head, tail } = splitPath(cwdValue);
+      pathField.replaceChildren();
+      if (head) {
+        const dim = document.createElement('span');
+        dim.className = 'dim';
+        dim.textContent = head;
+        pathField.appendChild(dim);
+      }
+      pathField.append(tail);
+    }
+
+    function renderEdit(opts: { focus: boolean; select?: boolean }): void {
+      pathField.replaceChildren();
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = cwdValue;
+      input.addEventListener('input', () => { cwdValue = input.value; });
+      input.addEventListener('blur', () => {
+        if (cwdValue.trim().length > 0) {
+          renderDisplay();
+        }
+      });
+      pathField.appendChild(input);
+      if (opts.focus) input.focus();
+      if (opts.select) input.select();
+    }
+
+    pathField.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement).tagName !== 'INPUT') renderEdit({ focus: true });
+    });
 
     const toggleEl = root.querySelector<HTMLButtonElement>('#set-enabled-toggle')!;
     const setToggle = (on: boolean): void => {
@@ -82,8 +139,26 @@ export function showSettingsDialog(
 
     detectEl.value = current.autoResume.detectText;
     responseEl.value = current.autoResume.responseText;
+    renderEdit({ focus: false, select: cwdValue.length > 0 });
     detectEl.focus();
     detectEl.select();
+
+    root.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.addEventListener('click', () => {
+      void (async () => {
+        const b = (window as unknown as { aipad: Bridge }).aipad;
+        if (!b) return;
+        try {
+          const resp = await b.send(IpcChannel.FsPickDirectory, { startPath: cwdValue });
+          const r = resp as { path?: string; cancelled?: true };
+          if (r && typeof r.path === 'string') {
+            cwdValue = r.path;
+            renderEdit({ focus: false });
+          }
+        } catch (err) {
+          console.warn('[settings] Browse failed:', err);
+        }
+      })();
+    });
 
     const cleanup = (result: AppSettings | null): void => {
       mount.classList.remove('open');
@@ -96,12 +171,15 @@ export function showSettingsDialog(
       const enabled = enabledEl.checked;
       const detectText = detectEl.value.trim();
       const responseText = responseEl.value;
+      // Read from the active input if in edit mode, else from cwdValue (display mode).
+      const activeInput = pathField.querySelector<HTMLInputElement>('input');
+      const defaultCwd = (activeInput ? activeInput.value : cwdValue).trim();
       // When enabled, a non-empty detect phrase is required.
       if (enabled && !detectText) {
         detectEl.focus();
         return;
       }
-      cleanup({ autoResume: { enabled, detectText, responseText } });
+      cleanup({ autoResume: { enabled, detectText, responseText }, defaultCwd });
     }
 
     const onKey = (ev: KeyboardEvent): void => {

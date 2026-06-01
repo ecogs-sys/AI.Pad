@@ -10,21 +10,25 @@
   },
   "packageManager": "pnpm@9.12.0",
   "scripts": {
-    "dev": "pnpm --filter @aipad/desktop dev",
     "build": "pnpm -r --filter './packages/*' build && pnpm --filter @aipad/desktop build",
-    "test": "pnpm -r --if-present --filter=!@aipad/e2e --filter=!@aipad/integration test",
-    "test:integration": "pnpm --filter @aipad/integration test",
-    "test:e2e": "pnpm --filter @aipad/e2e test",
+    "dev": "pnpm --filter @aipad/desktop dev",
+    "format": "prettier --write .",
+    "icons": "node scripts/generate-icons.mjs",
     "lint": "eslint . --ext .ts,.tsx",
-    "typecheck": "pnpm -r typecheck",
-    "format": "prettier --write ."
+    "test": "pnpm -r --if-present --filter=!@aipad/e2e --filter=!@aipad/integration test",
+    "test:e2e": "pnpm --filter @aipad/e2e test",
+    "test:integration": "pnpm --filter @aipad/integration test",
+    "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.0",
+    "icns-lib": "^1.0.0",
+    "png-to-ico": "^2.1.8",
     "prettier": "^3.3.0",
+    "sharp": "^0.33.0",
     "typescript": "^5.5.0"
   }
 }

@@ -24,6 +24,9 @@ export class LayoutManager {
   private tickHandle: ReturnType<typeof setInterval> | null = null;
   /** Platform home directory, fetched from main at startup (the chrome cannot read it). */
   private homeCwd = '~';
+  /** User-configured default working directory (settings.defaultCwd). Cached here so
+   *  platformDefaultCwd() can remain synchronous. Kept live by the SettingsChanged subscription. */
+  private defaultCwdSetting = '';
 
   constructor(deps: LayoutDeps) {
     this.bridge = deps.bridge;
@@ -108,6 +111,10 @@ export class LayoutManager {
       session.resumeAt = null;
       this.render();
     });
+    this.bridge.on(IpcChannel.SettingsChanged, (raw) => {
+      const s = raw as AppSettings;
+      this.defaultCwdSetting = s.defaultCwd ?? '';
+    });
 
     // Fetch the real home directory so the New Session dialog never defaults to a
     // literal '~' (which node-pty cannot spawn into on Windows).
@@ -115,6 +122,13 @@ export class LayoutManager {
       this.homeCwd = (await this.bridge.send(IpcChannel.LayoutDefaultCwd)) as string;
     } catch {
       /* keep the '~' fallback */
+    }
+
+    try {
+      const settings = (await this.bridge.send(IpcChannel.SettingsGet)) as AppSettings;
+      this.defaultCwdSetting = settings.defaultCwd ?? '';
+    } catch {
+      /* keep '' fallback */
     }
 
     // Pull initial session list (main may have already spawned the boot session).
@@ -209,11 +223,13 @@ export class LayoutManager {
   }
 
   private platformDefaultCwd(): string {
-    // Prefer the most recent session's cwd; otherwise the real home directory fetched
-    // from main at startup.
-    for (const session of this.state.sessions.values()) {
-      if (session.info.cwd) return session.info.cwd;
+    // Prefer the most recent session's cwd; otherwise the configured default working
+    // directory from settings; otherwise the real home directory fetched from main at startup.
+    for (const id of this.state.tabOrder) {
+      const cwd = this.state.sessions.get(id)?.info.cwd;
+      if (cwd) return cwd;
     }
+    if (this.defaultCwdSetting) return this.defaultCwdSetting;
     return this.homeCwd;
   }
 

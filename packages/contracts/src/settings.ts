@@ -13,6 +13,7 @@ export type AutoResumeSettings = z.infer<typeof AutoResumeSettingsSchema>;
 /** Top-level persisted application settings. */
 export const AppSettingsSchema = z.object({
   autoResume: AutoResumeSettingsSchema,
+  defaultCwd: z.string().default(''),
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
@@ -22,4 +23,5 @@ export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
     detectText: "You've hit your limit",
     responseText: 'continue',
   }),
+  defaultCwd: '',
 });
