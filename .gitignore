@@ -13,7 +13,10 @@ build/
 !apps/desktop/build/
 apps/desktop/build/*
 !apps/desktop/build/icon.png
-!apps/desktop/build/generate-icon.ps1
+!apps/desktop/build/icon.ico
+!apps/desktop/build/icon.icns
+!apps/desktop/build/icons/
+!apps/desktop/build/icons/**
 
 # Electron packaging
 app/dist/
