@@ -28,6 +28,7 @@
   "linux": {
     "target": ["AppImage", "deb"],
     "category": "Development",
+    "executableName": "aipad",
     "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "publish": [
