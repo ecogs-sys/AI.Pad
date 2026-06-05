@@ -8,6 +8,7 @@
     "email": "ecogs.ltd@gmail.com"
   },
   "homepage": "https://github.com/ecogs/AI.Pad",
+  "description": "AI-powered notepad for developers",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
