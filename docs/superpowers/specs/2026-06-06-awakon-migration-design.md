@@ -85,15 +85,15 @@ Known files from grep (not exhaustive — implementation uses search-and-replace
 
 **Docs:**
 - `README.md` — project name, badges, GitHub links
+- `CHANGELOG.md` / `apps/desktop/CHANGELOG.md` — any `AI.Pad` / `@aipad/` references in release notes
+- All files under `docs/` — including `docs/design_handoff_aipad_redesign/` and any other docs with `AI.Pad` references
 
 **Lock file:**
 - `pnpm-lock.yaml` — regenerated via `pnpm install` after all package.json edits
 
 #### Files NOT Changed
 
-- `CHANGELOG.md` / `apps/desktop/CHANGELOG.md` — release history is kept as-is
 - `.vs/` IDE artifacts — not tracked in git
-- `docs/design_handoff_aipad_redesign/` — archived design docs, kept for reference
 - `apps/desktop/release/` — build artifacts, not tracked in git
 
 ### Stage 3: Push to Awakon Remote
