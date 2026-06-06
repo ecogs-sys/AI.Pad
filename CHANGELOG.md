@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.2](https://github.com/ecogs-sys/AI.Pad/compare/aipad-v0.6.1...aipad-v0.6.2) (2026-06-06)
+
+
+### Bug Fixes
+
+* resolve Linux deb packaging failures ([eac7d58](https://github.com/ecogs-sys/AI.Pad/commit/eac7d58a9db7095c10b074d3d909bb17275ecd25))
+* set executableName to avoid [@aipaddesktop](https://github.com/aipaddesktop) from scoped npm name ([f7e9544](https://github.com/ecogs-sys/AI.Pad/commit/f7e95440d91de1fb785447ce95adb73a8fc5a8e2))
+
 ## [0.6.1](https://github.com/ecogs-sys/AI.Pad/compare/aipad-v0.6.0...aipad-v0.6.1) (2026-06-01)
 
 
