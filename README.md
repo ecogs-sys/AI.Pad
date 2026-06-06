@@ -1,5 +1,13 @@
 # AI.Pad
 
+> ## ⚠️ This project is obsolete
+>
+> **AI.Pad has been superseded by [Awakon](https://github.com/ecogs-sys/awakon).**
+> Please use Awakon instead — it is the actively maintained successor to this project.
+> This repository is kept for historical reference only and is no longer maintained.
+
+---
+
 **Run many terminal sessions in parallel — and never miss the moment one of them needs you.**
 
 AI.Pad is a cross-platform desktop terminal built for working with several AI coding
